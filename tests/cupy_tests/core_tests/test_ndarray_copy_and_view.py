@@ -2,6 +2,7 @@ import numpy
 import pytest
 
 import cupy
+from cupy.exceptions import ComplexWarning
 from cupy import testing
 from cupy import _util
 
@@ -9,7 +10,7 @@ from cupy import _util
 def astype_without_warning(x, dtype, *args, **kwargs):
     dtype = numpy.dtype(dtype)
     if x.dtype.kind == 'c' and dtype.kind not in ['b', 'c']:
-        with testing.assert_warns(numpy.ComplexWarning):
+        with testing.assert_warns(ComplexWarning):
             return x.astype(dtype, *args, **kwargs)
     else:
         return x.astype(dtype, *args, **kwargs)
@@ -257,7 +258,7 @@ class TestArrayFill:
 
     @testing.with_requires('numpy>=1.24.0')
     @testing.for_all_dtypes_combination(('dtype1', 'dtype2'))
-    @testing.numpy_cupy_array_equal(accept_error=numpy.ComplexWarning)
+    @testing.numpy_cupy_array_equal(accept_error=ComplexWarning)
     def test_fill_with_numpy_scalar_ndarray(self, xp, dtype1, dtype2):
         a = testing.shaped_arange((2, 3, 4), xp, dtype1)
         a.fill(numpy.ones((), dtype=dtype2))
@@ -265,7 +266,7 @@ class TestArrayFill:
 
     @testing.with_requires('numpy>=1.24.0')
     @testing.for_all_dtypes_combination(('dtype1', 'dtype2'))
-    @testing.numpy_cupy_array_equal(accept_error=numpy.ComplexWarning)
+    @testing.numpy_cupy_array_equal(accept_error=ComplexWarning)
     def test_fill_with_cupy_scalar_ndarray(self, xp, dtype1, dtype2):
         a = testing.shaped_arange((2, 3, 4), xp, dtype1)
         b = xp.ones((), dtype=dtype2)
@@ -331,26 +332,29 @@ class TestArrayAsType:
     @testing.for_all_dtypes_combination(('src_dtype', 'dst_dtype'))
     @testing.numpy_cupy_equal()
     def test_astype_strides(self, xp, src_dtype, dst_dtype):
-        src = xp.empty((1, 2, 3), dtype=src_dtype)
+        src = testing.shaped_arange((1, 2, 3), xp, dtype=src_dtype)
         return astype_without_warning(src, dst_dtype, order='K').strides
 
     @testing.for_all_dtypes_combination(('src_dtype', 'dst_dtype'))
     @testing.numpy_cupy_equal()
     def test_astype_strides_negative(self, xp, src_dtype, dst_dtype):
-        src = xp.empty((2, 3), dtype=src_dtype)[::-1, :]
+        src = testing.shaped_arange((2, 3), xp, dtype=src_dtype)
+        src = src[::-1, :]
         return astype_without_warning(src, dst_dtype, order='K').strides
 
     @testing.for_all_dtypes_combination(('src_dtype', 'dst_dtype'))
     @testing.numpy_cupy_equal()
     def test_astype_strides_swapped(self, xp, src_dtype, dst_dtype):
-        src = xp.swapaxes(xp.empty((2, 3, 4), dtype=src_dtype), 1, 0)
+        src = testing.shaped_arange((2, 3, 4), xp, dtype=src_dtype)
+        src = xp.swapaxes(src, 1, 0)
         return astype_without_warning(src, dst_dtype, order='K').strides
 
     @testing.for_all_dtypes_combination(('src_dtype', 'dst_dtype'))
     @testing.numpy_cupy_equal()
     def test_astype_strides_broadcast(self, xp, src_dtype, dst_dtype):
-        src, _ = xp.broadcast_arrays(xp.empty((2,), dtype=src_dtype),
-                                     xp.empty((2, 3, 2), dtype=src_dtype))
+        src1 = testing.shaped_arange((2, 3, 2), xp, dtype=src_dtype)
+        src2 = testing.shaped_arange((2,), xp, dtype=src_dtype)
+        src, _ = xp.broadcast_arrays(src1, src2)
         return astype_without_warning(src, dst_dtype, order='K').strides
 
     @testing.numpy_cupy_array_equal()
@@ -379,7 +383,6 @@ class TestArrayDiagonal:
     {'src_order': 'C'},
     {'src_order': 'F'},
 )
-@testing.gpu
 class TestNumPyArrayCopyView:
     @pytest.mark.skipif(
         not _util.ENABLE_SLICE_COPY, reason='Special copy disabled')

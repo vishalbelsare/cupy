@@ -1,4 +1,7 @@
 cpdef enum:
+    # need to revisit this when cython supports C++ enums (in 3.0)
+    # https://stackoverflow.com/a/67138945
+
     cudaMemoryTypeHost = 1
     cudaMemoryTypeDevice = 2
 
@@ -7,6 +10,9 @@ cpdef enum:
     cudaMemAttachGlobal = 1
     cudaMemAttachHost = 2
     cudaMemAttachSingle = 4
+
+    cudaCpuDeviceId = -1
+    cudaInvalidDeviceId = -2
 
     cudaMemAdviseSetReadMostly = 1
     cudaMemAdviseUnsetReadMostly = 2
@@ -91,6 +97,18 @@ cpdef enum:
     # cudaMemLocationType
     cudaMemLocationTypeDevice = 1
 
+    # cudaGraphDebugDotFlags
+    cudaGraphDebugDotFlagsVerbose = 1<<0
+    cudaGraphDebugDotFlagsKernelNodeParams = 1<<2
+    cudaGraphDebugDotFlagsMemcpyNodeParams = 1<<3
+    cudaGraphDebugDotFlagsMemsetNodeParams = 1<<4
+    cudaGraphDebugDotFlagsHostNodeParams = 1<<5
+    cudaGraphDebugDotFlagsEventNodeParams = 1<<6
+    cudaGraphDebugDotFlagsExtSemasSignalNodeParams = 1<<7
+    cudaGraphDebugDotFlagsExtSemasWaitNodeParams = 1<<8
+    cudaGraphDebugDotFlagsKernelNodeAttributes = 1<<9
+    cudaGraphDebugDotFlagsHandles = 1<<10
+    cudaGraphDebugDotFlagsConditionalNodeParams = 1<<15
 
 # This was a legacy mistake: the prefix "cuda" should have been removed
 # so that we can directly assign their C counterparts here. Now because
@@ -137,7 +155,7 @@ IF CUPY_HIP_VERSION > 0:
         cudaDevAttrMaxTexture3DWidth
         cudaDevAttrMaxTexture3DHeight
         cudaDevAttrMaxTexture3DDepth
-        # The following attributes do not exist in CUDA and cause segfualts
+        # The following attributes do not exist in CUDA and cause segfaults
         # if we try to access them
         # hipDeviceAttributeHdpMemFlushCntl
         # hipDeviceAttributeHdpRegFlushCntl

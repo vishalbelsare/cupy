@@ -6,10 +6,9 @@ from cupy._core import core
 from cupy._core import _fusion_trace
 from cupy._core import _fusion_kernel
 from cupy._core import _fusion_thread_local
-from cupy._core._fusion_interface import _ScalarProxy  # NOQA
-from cupy._core._fusion_interface import _ArrayProxy  # NOQA
+from cupy._core._fusion_interface import _ScalarProxy  # no-cython-lint
+from cupy._core._fusion_interface import _ArrayProxy  # no-cython-lint
 from cupy._core._fusion_variable import _AbstractDim
-from cupy._core._dtype cimport get_dtype
 
 
 _thread_local = _fusion_thread_local.thread_local
@@ -166,7 +165,6 @@ class Fusion:
 def fuse(*args, **kwargs):
     """Decorator that fuses a function.
     """
-
     def wrapper(f, kernel_name=None):
         return Fusion(f, kernel_name)
 

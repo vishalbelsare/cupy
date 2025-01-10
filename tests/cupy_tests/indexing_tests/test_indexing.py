@@ -7,7 +7,6 @@ import cupy
 from cupy import testing
 
 
-@testing.gpu
 class TestIndexing(unittest.TestCase):
 
     @testing.numpy_cupy_array_equal()
@@ -203,7 +202,6 @@ class TestIndexing(unittest.TestCase):
         return xp.extract(b, a)
 
 
-@testing.gpu
 class TestChoose(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -264,9 +262,9 @@ class TestChoose(unittest.TestCase):
                 return a.choose(c)
 
 
-@testing.gpu
 class TestSelect(unittest.TestCase):
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_all_dtypes(no_bool=True, no_complex=True)
     @testing.numpy_cupy_array_equal()
     def test_select(self, xp, dtype):
@@ -275,6 +273,7 @@ class TestSelect(unittest.TestCase):
         choicelist = [a, a**2]
         return xp.select(condlist, choicelist)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_complex_dtypes()
     @testing.numpy_cupy_array_almost_equal()
     def test_select_complex(self, xp, dtype):
@@ -283,6 +282,7 @@ class TestSelect(unittest.TestCase):
         choicelist = [a, a**2]
         return xp.select(condlist, choicelist)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_all_dtypes(no_bool=True, no_complex=True)
     @testing.numpy_cupy_array_equal()
     def test_select_default(self, xp, dtype):
@@ -292,6 +292,7 @@ class TestSelect(unittest.TestCase):
         default = 3
         return xp.select(condlist, choicelist, default)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_complex_dtypes()
     @testing.numpy_cupy_array_almost_equal()
     def test_select_default_complex(self, xp, dtype):
@@ -301,6 +302,7 @@ class TestSelect(unittest.TestCase):
         default = 3
         return xp.select(condlist, choicelist, default)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_all_dtypes(no_bool=True, no_complex=True)
     @testing.numpy_cupy_array_equal()
     def test_select_odd_shaped_broadcastable(self, xp, dtype):
@@ -310,6 +312,7 @@ class TestSelect(unittest.TestCase):
         choicelist = [a, b]
         return xp.select(condlist, choicelist)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_complex_dtypes()
     @testing.numpy_cupy_allclose(rtol=1e-5)
     def test_select_odd_shaped_broadcastable_complex(self, xp, dtype):
@@ -328,6 +331,7 @@ class TestSelect(unittest.TestCase):
         choicelist = [a, b]
         return xp.select(condlist, choicelist)
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_all_dtypes(no_bool=True)
     @testing.numpy_cupy_array_equal()
     def test_select_choicelist_condlist_broadcast(self, xp, dtype):
@@ -384,3 +388,10 @@ class TestSelect(unittest.TestCase):
         choicelist = [a, b]
         with pytest.raises(TypeError):
             cupy.select(condlist, choicelist, [dtype(2)])
+
+    @testing.numpy_cupy_array_equal()
+    def test_indexing_overflows(self, xp):
+        a = xp.arange(2, dtype=xp.int32)
+        a = xp.lib.stride_tricks.as_strided(
+            a, shape=(2, 2 ** 32), strides=(4, 0))
+        return a[xp.array([1]), xp.array([1])]

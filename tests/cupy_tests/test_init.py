@@ -11,8 +11,8 @@ import numpy
 import pytest
 
 import cupy
-from cupy import testing
 import cupyx
+from cupy import testing
 
 
 def _run_script(code):
@@ -63,7 +63,6 @@ else:
 
 class TestAvailable(unittest.TestCase):
 
-    @testing.gpu
     def test_available(self):
         available = _test_cupy_available(self)
         assert available
@@ -134,13 +133,14 @@ class TestAliases(unittest.TestCase):
             assert xp.bitwise_not is xp.invert
 
 
+@testing.with_requires("numpy>=2.0")
 @pytest.mark.parametrize('name', [
-    'AxisError',
-    'ComplexWarning',
-    'ModuleDeprecationWarning',
-    'RankWarning',
-    'TooHardError',
-    'VisibleDeprecationWarning',
+    'exceptions.AxisError',
+    'exceptions.ComplexWarning',
+    'exceptions.ModuleDeprecationWarning',
+    'exceptions.RankWarning',
+    'exceptions.TooHardError',
+    'exceptions.VisibleDeprecationWarning',
     'linalg.LinAlgError'
 ])
 def test_error_classes(name):

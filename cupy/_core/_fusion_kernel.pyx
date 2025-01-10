@@ -2,7 +2,6 @@ import itertools
 import string
 
 from libcpp cimport vector
-import numpy
 
 from cupy._core cimport _carray
 from cupy._core.core cimport _ndarray_init
@@ -11,16 +10,13 @@ from cupy._core.core cimport _ndarray_base
 from cupy._core cimport internal
 from cupy._core cimport _routines_manipulation as _manipulation
 from cupy_backends.cuda.api cimport driver
-from cupy.cuda cimport function
 from cupy_backends.cuda.api cimport runtime
-from cupy._core cimport _reduction
 
 import cupy as _cupy
 from cupy._core import _dtype
 from cupy import _util
 from cupy._core import _codeblock
 from cupy._core import _fusion_op
-from cupy._core._fusion_variable import _AbstractDim
 from cupy._core._fusion_variable import _TraceVariable
 from cupy._core._fusion_variable import _TraceScalar
 from cupy._core._fusion_variable import _TraceArray
@@ -291,7 +287,6 @@ cdef class FusedKernel:
         """
         cdef list params = []
         cdef list indexers = []
-        cdef list block_strides = []
         cdef _carray.Indexer indexer
 
         for i in range(len(self._params)):
@@ -341,15 +336,23 @@ cdef class FusedKernel:
         self._cuda_params_memo[key] = ret
         return ret
 
+    def _get_typedefs(self, tuple args):
+        index_type = 'int'
+        for array in args:
+            if isinstance(array, _cupy.ndarray) and array.size > 0x7fffffff:
+                index_type = 'long long'
+        return f'typedef {index_type} IndexT;\n'
+
     def execute(self, tuple args, list shapes):
         ndarray_list = self._get_ndarray_list(args, shapes)
         ret = self._get_return_value(ndarray_list)
         reduce_key = self._reduce_dims(ndarray_list)
         inout_args = self._get_inout_args(args, ndarray_list)
         cuda_params = self._get_cuda_params(reduce_key, ndarray_list)
+        typedef = self._get_typedefs(args)
         kern = _cuda_compile(
-            self._submodule_code, self._name, cuda_params, self._cuda_body,
-            self._use_grid_sync)
+            typedef + self._submodule_code,
+            self._name, cuda_params, self._cuda_body, self._use_grid_sync)
 
         block_strides, block_size, shared_mem = (
             self._get_kernel_size(ndarray_list))

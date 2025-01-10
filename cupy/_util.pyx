@@ -1,15 +1,12 @@
 # distutils: language = c++
 
 import atexit
-import collections
 import functools
 import os
 import warnings
 
-import numpy
-
 import cupy
-from cupy.cuda cimport device
+from cupy_backends.cuda.api cimport runtime
 
 
 DEF CYTHON_BUILD_VER = CUPY_CYTHON_VERSION
@@ -57,7 +54,7 @@ def memoize(bint for_each_device=False):
             cdef int id = -1
             cdef dict m = memo
             if for_each_device:
-                id = device.get_device_id()
+                id = runtime.getDevice()
             if len(kwargs):
                 arg_key = (id, args, frozenset(kwargs.items()))
             else:
@@ -198,13 +195,11 @@ def check_array(obj, *, arg_name):
                 arg_name, type(obj)))
 
 
-"""
-This code is to signal when the interpreter is in shutdown mode
-to prevent using globals that could be already deleted in
-objects `__del__` method
-
-This solution is taken from the Numba/llvmlite code
-"""
+# This code is to signal when the interpreter is in shutdown mode
+# to prevent using globals that could be already deleted in
+# objects `__del__` method
+#
+# This solution is taken from the Numba/llvmlite code
 _shutting_down = [False]
 
 

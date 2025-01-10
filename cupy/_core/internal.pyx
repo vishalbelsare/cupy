@@ -5,10 +5,10 @@ cimport cython  # NOQA
 from libcpp cimport bool as cpp_bool
 from libc.stdint cimport uint32_t
 
-import sys
 import warnings
 
 import numpy
+from cupy.exceptions import AxisError
 
 from cupy._core.core cimport _ndarray_base
 
@@ -350,7 +350,6 @@ cdef _broadcast_core(list arrays, shape_t& shape):
     cdef strides_t strides
     cdef vector.vector[int] index
     cdef _ndarray_base a
-    cdef list ret
 
     shape.clear()
     index.reserve(len(arrays))
@@ -436,7 +435,7 @@ cpdef Py_ssize_t _normalize_axis_index(
 
     """
     if not (-ndim <= axis < ndim):
-        raise numpy.AxisError(axis, ndim)
+        raise AxisError(axis, ndim)
     if axis < 0:
         axis += ndim
     return axis
@@ -536,3 +535,20 @@ cpdef tuple _broadcast_shapes(shapes):
         result_shape.append(out_dim)
 
     return tuple(result_shape)
+
+
+cdef bint _is_layout_expected(
+        const bint c_contiguous, const bint f_contiguous,
+        expected_order) except*:
+    cdef int order_char = _normalize_order(expected_order)
+    order_char = _update_order_char(
+        c_contiguous, f_contiguous, order_char)
+    # order_char is either C or F from now on
+    if c_contiguous and f_contiguous:
+        return True
+    if c_contiguous and order_char == b'C':
+        return True
+    elif f_contiguous and order_char == b'F':
+        return True
+    else:
+        return False

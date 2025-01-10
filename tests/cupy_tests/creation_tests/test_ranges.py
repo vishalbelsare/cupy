@@ -30,7 +30,6 @@ def skip_int_equality_before_numpy_1_20(names=('dtype',)):
     return decorator
 
 
-@testing.gpu
 class TestRanges(unittest.TestCase):
 
     @testing.for_all_dtypes(no_bool=True)
@@ -189,10 +188,12 @@ class TestRanges(unittest.TestCase):
 
     @testing.with_requires('numpy>=1.16')
     @testing.for_all_dtypes_combination(names=('dtype_range', 'dtype_out'),
-                                        no_bool=True, no_complex=True)
-    @testing.numpy_cupy_array_equal()
-    @skip_int_equality_before_numpy_1_20(names=('dtype_range', 'dtype_out'))
+                                        no_bool=True, no_complex=True,
+                                        no_float16=True)
+    @testing.numpy_cupy_allclose(rtol={'default': 5e-6, numpy.float16: 1e-2,
+                                       numpy.float32: 1e-5})
     def test_linspace_mixed_start_stop(self, xp, dtype_range, dtype_out):
+        # TODO (ev-br): np 2.0: check if can reenable float16
         start = 0.0
         if xp.dtype(dtype_range).kind in 'u':
             stop = xp.array([100, 16], dtype=dtype_range)
@@ -202,10 +203,14 @@ class TestRanges(unittest.TestCase):
 
     @testing.with_requires('numpy>=1.16')
     @testing.for_all_dtypes_combination(names=('dtype_range', 'dtype_out'),
-                                        no_bool=True, no_complex=True)
-    @testing.numpy_cupy_array_equal()
-    @skip_int_equality_before_numpy_1_20(names=('dtype_range', 'dtype_out'))
+                                        no_bool=True, no_complex=True,
+                                        no_float16=True)
+    @testing.numpy_cupy_allclose(rtol={'default': 5e-6, numpy.float16: 1e-2,
+                                 numpy.float32: 5e-6})
     def test_linspace_mixed_start_stop2(self, xp, dtype_range, dtype_out):
+        # TODO (ev-br): np 2.0: check if can reenable float16
+        # TODO (ev-br): np 2.0: had to bump the default rtol on Windows
+        #               and numpy 1.26+weak promotion from 0 to 5e-6
         if xp.dtype(dtype_range).kind in 'u':
             start = xp.array([160, 120], dtype=dtype_range)
         else:
@@ -285,7 +290,8 @@ class TestRanges(unittest.TestCase):
     def test_logspace_base(self, xp, dtype):
         return xp.logspace(0, 2, 5, base=2.0, dtype=dtype)
 
-    @testing.with_requires('numpy>=1.16')
+    # See #7946 and https://github.com/numpy/numpy/issues/24957
+    @testing.with_requires('numpy>=1.16, !=1.25.*, !=1.26.*')
     @testing.for_all_dtypes_combination(names=('dtype_range', 'dtype_out'),
                                         no_bool=True, no_complex=True)
     @testing.numpy_cupy_allclose(rtol=1e-6, contiguous_check=False)
@@ -302,14 +308,13 @@ class TestRanges(unittest.TestCase):
         'copy': [False, True],
     })
 )
-@testing.gpu
 class TestMeshgrid(unittest.TestCase):
 
     @testing.for_all_dtypes()
     def test_meshgrid0(self, dtype):
         out = cupy.meshgrid(indexing=self.indexing, sparse=self.sparse,
                             copy=self.copy)
-        assert(out == [])
+        assert (out == [])
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_array_equal()
@@ -336,7 +341,6 @@ class TestMeshgrid(unittest.TestCase):
                            copy=self.copy)
 
 
-@testing.gpu
 class TestMgrid(unittest.TestCase):
 
     @testing.numpy_cupy_array_equal()
@@ -370,7 +374,6 @@ class TestMgrid(unittest.TestCase):
         return xp.mgrid[x:y:10j, x:y:10j]
 
 
-@testing.gpu
 class TestOgrid(unittest.TestCase):
 
     @testing.numpy_cupy_array_equal()

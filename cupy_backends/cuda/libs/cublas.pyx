@@ -232,6 +232,26 @@ cdef extern from '../../cupy_blas.h' nogil:
         Handle handle, SideMode size, FillMode uplo, Operation trans,
         DiagType diag, int m, int n, const cuDoubleComplex* alpha,
         const cuDoubleComplex* A, int lda, cuDoubleComplex* B, int ldb)
+    int cublasStrsmBatched(
+        Handle handle, SideMode size, FillMode uplo, Operation trans,
+        DiagType diag, int m, int n, const float* alpha,
+        const float* const* A, int lda, float* const* B, int ldb,
+        int batchCount)
+    int cublasDtrsmBatched(
+        Handle handle, SideMode size, FillMode uplo, Operation trans,
+        DiagType diag, int m, int n, const double* alpha,
+        const double* const* A, int lda, double* const* B, int ldb,
+        int batchCount)
+    int cublasCtrsmBatched(
+        Handle handle, SideMode size, FillMode uplo, Operation trans,
+        DiagType diag, int m, int n, const cuComplex* alpha,
+        const cuComplex* const* A, int lda, cuComplex* const* B, int ldb,
+        int batchCount)
+    int cublasZtrsmBatched(
+        Handle handle, SideMode size, FillMode uplo, Operation trans,
+        DiagType diag, int m, int n, const cuDoubleComplex* alpha,
+        const cuDoubleComplex* const* A, int lda, cuDoubleComplex* const* B,
+        int ldb, int batchCount)
     int cublasSsyrk(
         Handle handle, FillMode uplo, Operation trans, int n, int k,
         float* alpha, float* A, int lda,
@@ -1018,6 +1038,7 @@ cpdef zgemmBatched(
             <cuDoubleComplex*>alpha, <const cuDoubleComplex**>Aarray, lda,
             <const cuDoubleComplex**>Barray, ldb, <cuDoubleComplex*>beta,
             <cuDoubleComplex**>Carray, ldc, batchCount)
+    check_status(status)
 
 
 cpdef sgemmStridedBatched(
@@ -1141,6 +1162,62 @@ cpdef ztrsm(
             <Handle>handle, <SideMode>side, <FillMode>uplo, <Operation>trans,
             <DiagType>diag, m, n, <const cuDoubleComplex*>alpha,
             <const cuDoubleComplex*>Aarray, lda, <cuDoubleComplex*>Barray, ldb)
+    check_status(status)
+
+
+cpdef strsmBatched(
+    intptr_t handle, int side, int uplo, int trans, int diag,
+        int m, int n, size_t alpha, size_t Aarray, int lda,
+        size_t Barray, int ldb, int batchCount):
+    _setStream(handle)
+    with nogil:
+        status = cublasStrsmBatched(
+            <Handle>handle, <SideMode>side, <FillMode>uplo, <Operation>trans,
+            <DiagType>diag, m, n, <const float*>alpha,
+            <const float* const*>Aarray, lda, <float* const*>Barray, ldb,
+            batchCount)
+    check_status(status)
+
+
+cpdef dtrsmBatched(
+    intptr_t handle, int side, int uplo, int trans, int diag,
+        int m, int n, size_t alpha, size_t Aarray, int lda,
+        size_t Barray, int ldb, int batchCount):
+    _setStream(handle)
+    with nogil:
+        status = cublasDtrsmBatched(
+            <Handle>handle, <SideMode>side, <FillMode>uplo, <Operation>trans,
+            <DiagType>diag, m, n, <const double*>alpha,
+            <const double* const*>Aarray, lda, <double* const*>Barray, ldb,
+            batchCount)
+    check_status(status)
+
+
+cpdef ctrsmBatched(
+    intptr_t handle, int side, int uplo, int trans, int diag,
+        int m, int n, size_t alpha, size_t Aarray, int lda,
+        size_t Barray, int ldb, int batchCount):
+    _setStream(handle)
+    with nogil:
+        status = cublasCtrsmBatched(
+            <Handle>handle, <SideMode>side, <FillMode>uplo, <Operation>trans,
+            <DiagType>diag, m, n, <const cuComplex*>alpha,
+            <const cuComplex* const*>Aarray, lda, <cuComplex* const*>Barray,
+            ldb, batchCount)
+    check_status(status)
+
+
+cpdef ztrsmBatched(
+    intptr_t handle, int side, int uplo, int trans, int diag,
+        int m, int n, size_t alpha, size_t Aarray, int lda,
+        size_t Barray, int ldb, int batchCount):
+    _setStream(handle)
+    with nogil:
+        status = cublasZtrsmBatched(
+            <Handle>handle, <SideMode>side, <FillMode>uplo, <Operation>trans,
+            <DiagType>diag, m, n, <const cuDoubleComplex*>alpha,
+            <const cuDoubleComplex* const*>Aarray, lda,
+            <cuDoubleComplex* const*>Barray, ldb, batchCount)
     check_status(status)
 
 
@@ -1429,7 +1506,10 @@ cpdef gemmEx(
         int ldc, int computeType, int algo):
     _setStream(handle)
     with nogil:
-        if computeType >= CUBLAS_COMPUTE_16F:
+        if (
+            not runtime._is_hip_environment and
+            computeType >= CUBLAS_COMPUTE_16F
+        ):
             status = cublasGemmEx_v11(
                 <Handle>handle, <Operation>transa, <Operation>transb, m, n, k,
                 <const void*>alpha,

@@ -12,8 +12,15 @@ Basics
    :toctree: generated/
 
    solve_triangular
-   tril
-   triu
+
+
+Matrix Functions
+----------------
+
+.. autosummary::
+   :toctree: generated/
+
+   expm
 
 
 Decompositions
@@ -47,4 +54,3 @@ Special Matrices
    kron
    leslie
    toeplitz
-   tri

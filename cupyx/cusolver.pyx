@@ -169,7 +169,7 @@ def gesvdj(a, full_matrices=True, compute_uv=True, overwrite_a=False):
 
     handle = _device.get_cusolver_handle()
     m, n = a.shape
-    a = _cupy.array(a, order='F', copy=not overwrite_a)
+    a = _cupy.array(a, order='F', copy=(None if overwrite_a else True))
     lda = m
     mn = min(m, n)
     s = _cupy.empty(mn, dtype=s_dtype)
@@ -231,7 +231,8 @@ cpdef _gesvdj_batched(a, full_matrices, compute_uv, overwrite_a):
 
     handle = _device.get_cusolver_handle()
     batch_size, m, n = a.shape
-    a = _cupy.array(a.swapaxes(-2, -1), order='C', copy=not overwrite_a)
+    a = _cupy.array(a.swapaxes(-2, -1), order='C',
+                    copy=(None if overwrite_a else True))
     if runtime._is_hip_environment:
         # rocsolver_<t>gesvd_batched has a different signature...
         ap = _linalg._mat_ptrs(a)
@@ -289,8 +290,8 @@ cpdef _gesvd_batched(a, a_dtype, full_matrices, compute_uv, overwrite_a):
     # TODO(leofang): try overlapping using a small stream pool?
 
     cdef _ndarray_base x, s, u, vt, dev_info
-    cdef int n, m, k, batch_size, i, buffersize, d_size, status
-    cdef intptr_t a_ptr, s_ptr, u_ptr, vt_ptr, rwork_ptr, w_ptr, info_ptr
+    cdef int n, m, k, batch_size, buffersize, status
+    cdef intptr_t a_ptr, s_ptr, u_ptr, vt_ptr, w_ptr, info_ptr
     cdef str s_dtype
     cdef char job_u, job_vt
     cdef bint trans_flag
@@ -871,7 +872,7 @@ cpdef _geqrf_orgqr_batched(a, mode):
     is of shape (batch_size, m, n)
     '''
     cdef intptr_t x_ptr, tau_ptr, w_ptr, info_ptr
-    cdef int m, n, k, batch_size, buffersize, orig_n
+    cdef int m, n, mn, mc, batch_size, buffersize, orig_n
 
     # support float32, float64, complex64, and complex128
     dtype, out_dtype = _cupy.linalg._util.linalg_common_type(a)
@@ -947,7 +948,7 @@ cpdef _geqrf_orgqr_batched(a, mode):
     x_ptr = q.data.ptr
 
     # compute working space of orgqr and solve Q
-    cdef orgqr_ptr orgqr
+    cdef orgqr_ptr orgqr = NULL
     if dtype == 'f':
         orgqr_bufferSize = sorgqr_bufferSize
         orgqr = orgqr_loop[float]
@@ -960,6 +961,8 @@ cpdef _geqrf_orgqr_batched(a, mode):
     elif dtype == 'D':
         orgqr_bufferSize = zungqr_bufferSize
         orgqr = orgqr_loop[cuDoubleComplex]
+    else:
+        raise ValueError
 
     # this wrapper also sets the stream for us
     buffersize = orgqr_bufferSize(

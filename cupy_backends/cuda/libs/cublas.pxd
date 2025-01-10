@@ -29,6 +29,9 @@ cdef extern from *:
 ###############################################################################
 
 cpdef enum:
+    # need to revisit this when cython supports C++ enums (in 3.0)
+    # https://stackoverflow.com/a/67138945
+
     CUBLAS_OP_N = 0
     CUBLAS_OP_T = 1
     CUBLAS_OP_C = 2
@@ -240,6 +243,18 @@ cpdef ctrsm(intptr_t handle, int side, int uplo, int trans, int diag,
 cpdef ztrsm(intptr_t handle, int side, int uplo, int trans, int diag,
             int m, int n, size_t alpha, size_t Aarray, int lda,
             size_t Barray, int ldb)
+cpdef strsmBatched(intptr_t handle, int side, int uplo, int trans, int diag,
+                   int m, int n, size_t alpha, size_t Aarray, int lda,
+                   size_t Barray, int ldb, int batchCount)
+cpdef dtrsmBatched(intptr_t handle, int side, int uplo, int trans, int diag,
+                   int m, int n, size_t alpha, size_t Aarray, int lda,
+                   size_t Barray, int ldb, int batchCount)
+cpdef ctrsmBatched(intptr_t handle, int side, int uplo, int trans, int diag,
+                   int m, int n, size_t alpha, size_t Aarray, int lda,
+                   size_t Barray, int ldb, int batchCount)
+cpdef ztrsmBatched(intptr_t handle, int side, int uplo, int trans, int diag,
+                   int m, int n, size_t alpha, size_t Aarray, int lda,
+                   size_t Barray, int ldb, int batchCount)
 cpdef ssyrk(intptr_t handle, int uplo, int trans, int n, int k,
             size_t alpha, size_t A, int lda, size_t beta, size_t C, int ldc)
 cpdef dsyrk(intptr_t handle, int uplo, int trans, int n, int k,

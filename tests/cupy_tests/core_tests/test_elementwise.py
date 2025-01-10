@@ -9,7 +9,6 @@ from cupy import cuda
 from cupy import testing
 
 
-@testing.gpu
 class TestElementwise(unittest.TestCase):
 
     def check_copy(self, dtype, src_id, dst_id):
@@ -70,7 +69,6 @@ class TestElementwise(unittest.TestCase):
         assert b.strides == b_cpu.strides
 
 
-@testing.gpu
 class TestElementwiseInvalidShape(unittest.TestCase):
 
     def test_invalid_shape(self):
@@ -81,7 +79,6 @@ class TestElementwiseInvalidShape(unittest.TestCase):
             f(x, y)
 
 
-@testing.gpu
 class TestElementwiseInvalidArgument(unittest.TestCase):
 
     def test_invalid_kernel_name(self):
@@ -89,18 +86,17 @@ class TestElementwiseInvalidArgument(unittest.TestCase):
             cupy.ElementwiseKernel('T x', '', '', '1')
 
 
-@testing.gpu
 class TestElementwiseType(unittest.TestCase):
 
     @testing.for_int_dtypes(no_bool=True)
-    @testing.numpy_cupy_array_equal()
+    @testing.numpy_cupy_array_equal(accept_error=OverflowError)
     def test_large_int_upper_1(self, xp, dtype):
         a = xp.array([0], dtype=xp.int8)
         b = xp.iinfo(dtype).max
         return a + b
 
     @testing.for_int_dtypes(no_bool=True)
-    @testing.numpy_cupy_array_equal()
+    @testing.numpy_cupy_array_equal(accept_error=OverflowError)
     def test_large_int_upper_2(self, xp, dtype):
         a = xp.array([1], dtype=xp.int8)
         b = xp.iinfo(dtype).max - 1
@@ -121,14 +117,14 @@ class TestElementwiseType(unittest.TestCase):
         return a + b
 
     @testing.for_int_dtypes(no_bool=True)
-    @testing.numpy_cupy_array_equal()
+    @testing.numpy_cupy_array_equal(accept_error=OverflowError)
     def test_large_int_lower_1(self, xp, dtype):
         a = xp.array([0], dtype=xp.int8)
         b = xp.iinfo(dtype).min
         return a + b
 
     @testing.for_int_dtypes(no_bool=True)
-    @testing.numpy_cupy_array_equal()
+    @testing.numpy_cupy_array_equal(accept_error=OverflowError)
     def test_large_int_lower_2(self, xp, dtype):
         a = xp.array([-1], dtype=xp.int8)
         b = xp.iinfo(dtype).min + 1

@@ -18,7 +18,7 @@ cimport cpython  # NOQA
 cimport cython  # NOQA
 
 from cupy_backends.cuda.api cimport driver  # NOQA
-from cupy_backends.cuda.libs cimport nvrtc  # NOQA
+from cupy_backends.cuda.libs cimport nvrtc  # no-cython-lint
 
 
 ###############################################################################
@@ -72,10 +72,13 @@ cdef class _ThreadLocal:
 # Extern
 ###############################################################################
 
+include '_runtime_softlink.pxi'
+
 IF CUPY_USE_CUDA_PYTHON:
     from cuda.ccudart cimport *
 ELSE:
     include '_runtime_extern.pxi'
+    pass  # for cython-lint
 
 cdef extern from '../../cupy_backend_runtime.h' nogil:
     bint hip_environment
@@ -154,6 +157,12 @@ cpdef int driverGetVersion() except? -1:
     return version
 
 cpdef int runtimeGetVersion() except? -1:
+    """
+    Returns the version of the CUDA Runtime statically linked to CuPy.
+
+    .. seealso:: :meth:`cupy.cuda.get_local_runtime_version`
+    """
+
     cdef int version
     IF CUPY_USE_CUDA_PYTHON:
         # Workarounds an issue that cuda-python returns its version instead of
@@ -165,6 +174,21 @@ cpdef int runtimeGetVersion() except? -1:
     ELSE:
         status = cudaRuntimeGetVersion(&version)
         check_status(status)
+    return version
+
+
+cpdef int _getCUDAMajorVersion() except? -1:
+    cdef int major = 0
+    IF 0 < CUPY_CUDA_VERSION:
+        major = runtimeGetVersion() // 1000
+    return major
+
+
+cpdef int _getLocalRuntimeVersion() except? -1:
+    cdef int version
+    initialize()
+    status = DYN_cudaRuntimeGetVersion(&version)
+    check_status(status)
     return version
 
 
@@ -294,7 +318,6 @@ cpdef getDeviceProperties(int device):
         properties['clockInstructionRate'] = props.clockInstructionRate
         properties['maxSharedMemoryPerMultiProcessor'] = (
             props.maxSharedMemoryPerMultiProcessor)
-        properties['gcnArch'] = props.gcnArch
         properties['hdpMemFlushCntl'] = <intptr_t>(props.hdpMemFlushCntl)
         properties['hdpRegFlushCntl'] = <intptr_t>(props.hdpRegFlushCntl)
         properties['memPitch'] = props.memPitch
@@ -327,6 +350,8 @@ cpdef getDeviceProperties(int device):
         arch['has3dGrid'] = props.arch.has3dGrid
         arch['hasDynamicParallelism'] = props.arch.hasDynamicParallelism
         properties['arch'] = arch
+    IF 0 < CUPY_HIP_VERSION < 60000000:  # removed in HIP 6.0.0
+        properties['gcnArch'] = props.gcnArch
     IF CUPY_HIP_VERSION >= 310:
         properties['gcnArchName'] = props.gcnArchName
         properties['asicRevision'] = props.asicRevision
@@ -507,8 +532,6 @@ cpdef intptr_t mallocAsync(size_t size, intptr_t stream) except? 0:
     cdef void* ptr
     if _is_hip_environment:
         raise RuntimeError('HIP does not support mallocAsync')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('mallocAsync is supported since CUDA 11.2')
     with nogil:
         status = cudaMallocAsync(&ptr, size, <driver.Stream>stream)
     check_status(status)
@@ -519,8 +542,6 @@ cpdef intptr_t mallocFromPoolAsync(
     cdef void* ptr
     if _is_hip_environment:
         raise RuntimeError('HIP does not support mallocFromPoolAsync')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('mallocFromPoolAsync is supported since CUDA 11.2')
     with nogil:
         status = cudaMallocFromPoolAsync(
             &ptr, size, <MemPool>pool, <driver.Stream>stream)
@@ -562,8 +583,6 @@ cpdef freeArray(intptr_t ptr):
 cpdef freeAsync(intptr_t ptr, intptr_t stream):
     if _is_hip_environment:
         raise RuntimeError('HIP does not support freeAsync')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('freeAsync is supported since CUDA 11.2')
     with nogil:
         status = cudaFreeAsync(<void*>ptr, <driver.Stream>stream)
     check_status(status)
@@ -702,12 +721,18 @@ cpdef PointerAttributes pointerGetAttributes(intptr_t ptr):
             <intptr_t>attrs.devicePointer,
             <intptr_t>attrs.hostPointer,
             attrs.type)
-    ELIF CUPY_HIP_VERSION > 0:
+    ELIF 0 < CUPY_HIP_VERSION < 60000000:
         return PointerAttributes(
             attrs.device,
             <intptr_t>attrs.devicePointer,
             <intptr_t>attrs.hostPointer,
             attrs.memoryType)
+    ELIF 60000000 <= CUPY_HIP_VERSION:
+        return PointerAttributes(
+            attrs.device,
+            <intptr_t>attrs.devicePointer,
+            <intptr_t>attrs.hostPointer,
+            attrs.type)
     ELSE:  # for RTD
         return None
 
@@ -715,9 +740,6 @@ cpdef intptr_t deviceGetDefaultMemPool(int device) except? 0:
     '''Get the default mempool on the current device.'''
     if _is_hip_environment:
         raise RuntimeError('HIP does not support deviceGetDefaultMemPool')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('deviceGetDefaultMemPool is supported since '
-                           'CUDA 11.2')
     cdef MemPool pool
     with nogil:
         status = cudaDeviceGetDefaultMemPool(&pool, device)
@@ -728,9 +750,6 @@ cpdef intptr_t deviceGetMemPool(int device) except? 0:
     '''Get the current mempool on the current device.'''
     if _is_hip_environment:
         raise RuntimeError('HIP does not support deviceGetMemPool')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('deviceGetMemPool is supported since '
-                           'CUDA 11.2')
     cdef MemPool pool
     with nogil:
         status = cudaDeviceGetMemPool(&pool, device)
@@ -741,9 +760,6 @@ cpdef deviceSetMemPool(int device, intptr_t pool):
     '''Set the current mempool on the current device to pool.'''
     if _is_hip_environment:
         raise RuntimeError('HIP does not support deviceSetMemPool')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('deviceSetMemPool is supported since '
-                           'CUDA 11.2')
     with nogil:
         status = cudaDeviceSetMemPool(device, <MemPool>pool)
     check_status(status)
@@ -751,8 +767,6 @@ cpdef deviceSetMemPool(int device, intptr_t pool):
 cpdef intptr_t memPoolCreate(MemPoolProps props) except? 0:
     if _is_hip_environment:
         raise RuntimeError('HIP does not support memPoolCreate')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('memPoolCreate is supported since CUDA 11.2')
 
     cdef MemPool pool
     cdef _MemPoolProps props_c
@@ -770,8 +784,6 @@ cpdef intptr_t memPoolCreate(MemPoolProps props) except? 0:
 cpdef memPoolDestroy(intptr_t pool):
     if _is_hip_environment:
         raise RuntimeError('HIP does not support memPoolDestroy')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('memPoolDestroy is supported since CUDA 11.2')
     with nogil:
         status = cudaMemPoolDestroy(<MemPool>pool)
     check_status(status)
@@ -779,8 +791,6 @@ cpdef memPoolDestroy(intptr_t pool):
 cpdef memPoolTrimTo(intptr_t pool, size_t size):
     if _is_hip_environment:
         raise RuntimeError('HIP does not support memPoolTrimTo')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('memPoolTrimTo is supported since CUDA 11.2')
     with nogil:
         status = cudaMemPoolTrimTo(<MemPool>pool, size)
     check_status(status)
@@ -788,8 +798,6 @@ cpdef memPoolTrimTo(intptr_t pool, size_t size):
 cpdef memPoolGetAttribute(intptr_t pool, int attr):
     if _is_hip_environment:
         raise RuntimeError('HIP does not support memPoolGetAttribute')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('memPoolGetAttribute is supported since CUDA 11.2')
     cdef int val1
     cdef uint64_t val2
     cdef void* out
@@ -805,8 +813,6 @@ cpdef memPoolGetAttribute(intptr_t pool, int attr):
 cpdef memPoolSetAttribute(intptr_t pool, int attr, object value):
     if _is_hip_environment:
         raise RuntimeError('HIP does not support memPoolSetAttribute')
-    if runtimeGetVersion() < 11020:
-        raise RuntimeError('memPoolSetAttribute is supported since CUDA 11.2')
     cdef int val1
     cdef uint64_t val2
     cdef void* out
@@ -838,6 +844,28 @@ cpdef intptr_t streamCreateWithFlags(unsigned int flags) except? 0:
     status = cudaStreamCreateWithFlags(&stream, flags)
     check_status(status)
     return <intptr_t>stream
+
+
+cpdef intptr_t streamCreateWithPriority(unsigned int flags,
+                                        int priority) except? 0:
+    cdef driver.Stream stream
+    status = cudaStreamCreateWithPriority(&stream, flags, priority)
+    check_status(status)
+    return <intptr_t>stream
+
+
+cpdef unsigned int streamGetFlags(intptr_t stream) except? 0:
+    cdef unsigned int flags
+    status = cudaStreamGetFlags(<driver.Stream>stream, &flags)
+    check_status(status)
+    return flags
+
+
+cpdef int streamGetPriority(intptr_t stream) except? 0:
+    cdef int priority
+    status = cudaStreamGetPriority(<driver.Stream>stream, &priority)
+    check_status(status)
+    return priority
 
 
 cpdef streamDestroy(intptr_t stream):
@@ -999,7 +1027,8 @@ cdef _ensure_context():
 # Texture
 ##############################################################################
 
-cpdef uintmax_t createTextureObject(intptr_t ResDescPtr, intptr_t TexDescPtr):
+cpdef uintmax_t createTextureObject(
+        intptr_t ResDescPtr, intptr_t TexDescPtr) except? 0:
     cdef uintmax_t texobj = 0
     with nogil:
         status = cudaCreateTextureObject(<TextureObject*>(&texobj),
@@ -1014,7 +1043,7 @@ cpdef destroyTextureObject(uintmax_t texObject):
         status = cudaDestroyTextureObject(<TextureObject>texObject)
     check_status(status)
 
-cpdef uintmax_t createSurfaceObject(intptr_t ResDescPtr):
+cpdef uintmax_t createSurfaceObject(intptr_t ResDescPtr) except? 0:
     cdef uintmax_t surfobj = 0
     with nogil:
         status = cudaCreateSurfaceObject(<SurfaceObject*>(&surfobj),
@@ -1027,34 +1056,35 @@ cpdef destroySurfaceObject(uintmax_t surfObject):
         status = cudaDestroySurfaceObject(<SurfaceObject>surfObject)
     check_status(status)
 
-cdef ChannelFormatDesc getChannelDesc(intptr_t array):
+cdef ChannelFormatDesc getChannelDesc(intptr_t array) except*:
     cdef ChannelFormatDesc desc
     with nogil:
         status = cudaGetChannelDesc(&desc, <Array>array)
     check_status(status)
     return desc
 
-cdef ResourceDesc getTextureObjectResourceDesc(uintmax_t obj):
+cdef ResourceDesc getTextureObjectResourceDesc(uintmax_t obj) except*:
     cdef ResourceDesc desc
     with nogil:
         status = cudaGetTextureObjectResourceDesc(&desc, <TextureObject>obj)
     check_status(status)
     return desc
 
-cdef TextureDesc getTextureObjectTextureDesc(uintmax_t obj):
+cdef TextureDesc getTextureObjectTextureDesc(uintmax_t obj) except*:
     cdef TextureDesc desc
     with nogil:
         status = cudaGetTextureObjectTextureDesc(&desc, <TextureObject>obj)
     check_status(status)
     return desc
 
-cdef Extent make_Extent(size_t w, size_t h, size_t d):
+cdef Extent make_Extent(size_t w, size_t h, size_t d) except*:
     return make_cudaExtent(w, h, d)
 
-cdef Pos make_Pos(size_t x, size_t y, size_t z):
+cdef Pos make_Pos(size_t x, size_t y, size_t z) except*:
     return make_cudaPos(x, y, z)
 
-cdef PitchedPtr make_PitchedPtr(intptr_t d, size_t p, size_t xsz, size_t ysz):
+cdef PitchedPtr make_PitchedPtr(
+        intptr_t d, size_t p, size_t xsz, size_t ysz) except*:
     return make_cudaPitchedPtr(<void*>d, p, xsz, ysz)
 
 
@@ -1087,8 +1117,43 @@ cpdef graphLaunch(intptr_t graphExec, intptr_t stream):
     check_status(status)
 
 cpdef graphUpload(intptr_t graphExec, intptr_t stream):
-    if runtimeGetVersion() < 11010:
-        raise RuntimeError('graphUpload is supported since CUDA 11.1+')
     with nogil:
         status = cudaGraphUpload(<GraphExec>(graphExec), <driver.Stream>stream)
+    check_status(status)
+
+cpdef graphDebugDotPrint(intptr_t graph, str path, unsigned int flags):
+    if runtimeGetVersion() < 11030:
+        raise RuntimeError('graphDebugDotPrint requires CUDA 11.3+')
+    path_byte = path.encode()
+    cdef const char* c_path = path_byte
+    with nogil:
+        status = cudaGraphDebugDotPrint(<Graph>(graph), c_path, flags)
+    check_status(status)
+
+
+##############################################################################
+# Profiler
+##############################################################################
+
+cpdef profilerStart():
+    """Enable profiling.
+
+    A user can enable CUDA profiling. When an error occurs, it raises an
+    exception.
+
+    See the CUDA document for detail.
+    """
+    status = cudaProfilerStart()
+    check_status(status)
+
+
+cpdef profilerStop():
+    """Disable profiling.
+
+    A user can disable CUDA profiling. When an error occurs, it raises an
+    exception.
+
+    See the CUDA document for detail.
+    """
+    status = cudaProfilerStop()
     check_status(status)

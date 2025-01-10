@@ -1,5 +1,6 @@
 import functools
 import pickle
+import sys
 
 import numpy
 import pytest
@@ -368,7 +369,7 @@ class TestCsrgemm2InvalidCases:
 
 @testing.parameterize(*testing.product({
     'dtype': [numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
-    'shape': [(2, 3, 4), (4, 3, 2)]
+    'shape': [(2, 3, 4), (4, 3, 2), (100000, 100000, 50)]
 }))
 @testing.with_requires('scipy>=1.2.0')
 class TestSpgemm:
@@ -377,17 +378,31 @@ class TestSpgemm:
 
     @pytest.fixture(autouse=True)
     def setUp(self):
+        if not cusparse.check_availability('spgemm'):
+            pytest.skip('spgemm is not available.')
+
+        if (sys.platform == 'win32'
+            and cusparse.getVersion() == 11301
+                and self.dtype == numpy.complex128):
+            pytest.xfail('spgemm fails on CUDA 11.2 on Windows')
+
         m, n, k = self.shape
         self.a = scipy.sparse.random(m, k, density=0.5, dtype=self.dtype)
         self.b = scipy.sparse.random(k, n, density=0.5, dtype=self.dtype)
 
     def test_spgemm_ab(self):
-        if not cusparse.check_availability('spgemm'):
-            pytest.skip('spgemm is not available.')
-
         a = sparse.csr_matrix(self.a)
         b = sparse.csr_matrix(self.b)
+
+        if (self.shape[0] == 100000) and cusparse.getVersion() < 12000:
+            # Lower memory algorithms for spgemm not available in CUDA < 12.0
+            with pytest.raises(_cusparse.CuSparseError):
+                cusparse.spgemm(a, b)
+            return
+
         c = cusparse.spgemm(a, b, alpha=self.alpha)
+        if (self.shape[0] == 100000):
+            return  # skip the comparison with scipy on large tests
         expect = self.alpha * self.a.dot(self.b)
         testing.assert_array_almost_equal(c.toarray(), expect.toarray())
 
@@ -726,6 +741,17 @@ class TestSpmm:
 
     @pytest.fixture(autouse=True)
     def setUp(self):
+        if not cusparse.check_availability('spmm'):
+            pytest.skip('spmm is not available')
+        if cusparse.getVersion() == 11700 and self.format == 'coo':
+            pytest.skip('spmm fails on CUDA 11.5.x with COO')
+        if cusparse.getVersion() == 11702 and self.format in ('csr', 'csc'):
+            pytest.skip('spmm fails on CUDA 11.6.1/11.6.2 with CSR or CSC')
+        if runtime.is_hip:
+            if ((self.format == 'csr' and self.transa is True)
+                    or (self.format == 'csc' and self.transa is False)
+                    or (self.format == 'coo' and self.transa is True)):
+                pytest.xfail('may be buggy')
         m, n, k = self.dims
         self.op_a = scipy.sparse.random(m, k, density=0.5, format=self.format,
                                         dtype=self.dtype)
@@ -747,14 +773,6 @@ class TestSpmm:
             self.sparse_matrix = sparse.coo_matrix
 
     def test_spmm(self):
-        if not cusparse.check_availability('spmm'):
-            pytest.skip('spmm is not available')
-        if runtime.is_hip:
-            if ((self.format == 'csr' and self.transa is True)
-                    or (self.format == 'csc' and self.transa is False)
-                    or (self.format == 'coo' and self.transa is True)):
-                pytest.xfail('may be buggy')
-
         a = self.sparse_matrix(self.a)
         if not a.has_canonical_format:
             a.sum_duplicates()
@@ -765,14 +783,6 @@ class TestSpmm:
         testing.assert_array_almost_equal(c, expect)
 
     def test_spmm_with_c(self):
-        if not cusparse.check_availability('spmm'):
-            pytest.skip('spmm is not available')
-        if runtime.is_hip:
-            if ((self.format == 'csr' and self.transa is True)
-                    or (self.format == 'csc' and self.transa is False)
-                    or (self.format == 'coo' and self.transa is True)):
-                pytest.xfail('may be buggy')
-
         a = self.sparse_matrix(self.a)
         if not a.has_canonical_format:
             a.sum_duplicates()
@@ -1088,7 +1098,7 @@ class TestSpsm:
         if not cusparse.check_availability('spsm'):
             pytest.skip('spsm is not available')
         if not runtime.is_hip and _cusparse.get_build_version() < 11701:
-            # eariler than CUDA 11.6
+            # earlier than CUDA 11.6
             if b_order == 'c':
                 pytest.skip("Older CUDA has a bug")
         if runtime.is_hip:

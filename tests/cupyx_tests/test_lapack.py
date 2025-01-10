@@ -5,7 +5,6 @@ import pytest
 
 import cupy
 from cupy import testing
-from cupy.testing import _attr
 import cupyx
 from cupyx import cusolver, lapack
 
@@ -16,7 +15,6 @@ from cupyx import cusolver, lapack
     'nrhs': [None, 1, 4],
     'order': ['C', 'F'],
 }))
-@_attr.gpu
 class TestGesv(unittest.TestCase):
     _tol = {'f': 1e-5, 'd': 1e-12}
 
@@ -90,7 +88,6 @@ class TestGesv(unittest.TestCase):
     'shape': [(4, 4), (5, 4), (4, 5)],
     'nrhs': [None, 1, 4],
 }))
-@_attr.gpu
 class TestGels(unittest.TestCase):
     _tol = {'f': 1e-5, 'd': 1e-12}
 
@@ -111,12 +108,21 @@ class TestGels(unittest.TestCase):
     'shape': [(3, 4, 2, 2), (5, 3, 3), (7, 7)],
     'nrhs': [None, 1, 4]
 }))
-@_attr.gpu
 class TestPosv(unittest.TestCase):
 
     def setUp(self):
         if not cusolver.check_availability('potrsBatched'):
             pytest.skip('potrsBatched is not available')
+
+    @staticmethod
+    def _solve(a, b):
+        if (
+            numpy.lib.NumpyVersion(numpy.__version__) < "2.0.0"
+            or a.shape[:-1] != b.shape
+        ):
+            return numpy.linalg.solve(a, b)
+        b = b[..., numpy.newaxis]
+        return numpy.linalg.solve(a, b)[..., 0]
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(atol=1e-5)
@@ -134,7 +140,7 @@ class TestPosv(unittest.TestCase):
         if xp == cupy:
             return lapack.posv(a, b)
         else:
-            return numpy.linalg.solve(a, b)
+            return self._solve(a, b)
 
     def _create_posdef_matrix(self, xp, shape, dtype):
         n = shape[-1]
@@ -149,7 +155,6 @@ class TestPosv(unittest.TestCase):
     'shape': [(2, 3, 3)],
     'dtype': [numpy.float32, numpy.float64, numpy.complex64, numpy.complex128],
 }))
-@_attr.gpu
 class TestXFailBatchedPosv(unittest.TestCase):
 
     def test_posv(self):

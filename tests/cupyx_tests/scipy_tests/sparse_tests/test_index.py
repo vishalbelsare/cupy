@@ -14,6 +14,12 @@ from cupy import testing
 from cupy.cuda import runtime
 from cupyx.scipy import sparse
 
+try:
+    import scipy
+    scipy_113_or_later = scipy.__version__ >= "1.13"
+except ImportError:
+    scipy_113_or_later = False
+
 
 def _get_index_combos(idx):
     return [dict['arr_fn'](idx, dtype=dict['dtype'])
@@ -38,7 +44,6 @@ def _check_shares_memory(xp, sp, x, y):
     'n_cols': [25, 150]
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestSetitemIndexing:
 
     def _run(self, maj, min=None, data=5):
@@ -111,6 +116,7 @@ class TestSetitemIndexing:
                             _get_index_combos(1)):
             self._run(maj, min, data=x)
 
+    @pytest.mark.xfail(scipy_113_or_later, reason="XXX: scipy1.13")
     @testing.with_requires('scipy>=1.5.0')
     def test_set_zero_dim_bool_mask(self):
 
@@ -279,6 +285,8 @@ class TestSetitemIndexing:
         self._run(slice(10, 2, 5), slice(None))
         self._run(slice(10, 0, 10), slice(None))
 
+    @pytest.mark.xfail(scipy_113_or_later,
+                       reason="XXX: scipy 1.13")
     @testing.with_requires('scipy>=1.5.0')
     def test_fancy_setting_bool(self):
         # Unfortunately, boolean setting is implemented slightly
@@ -380,7 +388,6 @@ _int_array_index = [
     ),
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestSliceIndexing(IndexingTestBase):
 
     @testing.for_dtypes('fdFD')
@@ -449,7 +456,6 @@ def _check_bounds(indices, n_rows, n_cols, **kwargs):
     )
 }) if _check_bounds(**params)])
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestArrayIndexing(IndexingTestBase):
 
     @skip_HIP_0_size_matrix()
@@ -505,7 +511,6 @@ class TestArrayIndexing(IndexingTestBase):
     ],
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestBoolMaskIndexing(IndexingTestBase):
 
     n_rows = 3
@@ -517,6 +522,10 @@ class TestBoolMaskIndexing(IndexingTestBase):
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_array_equal(sp_name='sp', type_check=False)
     def test_bool_mask(self, xp, sp, dtype):
+
+        if self.indices == ([True, False, True], [True, False, True]):
+            pytest.xfail(reason="XXX: np2.0: scipy 1.13 sparse raises")
+
         a = self._make_matrix(sp, dtype)
         res = a[self.indices]
         _check_shares_memory(xp, sp, a, res)
@@ -525,6 +534,10 @@ class TestBoolMaskIndexing(IndexingTestBase):
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_array_equal(sp_name='sp', type_check=False)
     def test_numpy_bool_mask(self, xp, sp, dtype):
+
+        if self.indices == ([True, False, True], [True, False, True]):
+            pytest.xfail(reason="XXX: np2.0: scipy 1.13 sparse raises")
+
         a = self._make_matrix(sp, dtype)
         indices = self._make_indices(numpy)
         res = a[indices]
@@ -534,6 +547,10 @@ class TestBoolMaskIndexing(IndexingTestBase):
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_array_equal(sp_name='sp', type_check=False)
     def test_cupy_bool_mask(self, xp, sp, dtype):
+
+        if self.indices == ([True, False, True], [True, False, True]):
+            pytest.xfail(reason="XXX: np2.0: scipy 1.13 sparse raises")
+
         a = self._make_matrix(sp, dtype)
         indices = self._make_indices(xp)
         res = a[indices]
@@ -554,7 +571,6 @@ class TestBoolMaskIndexing(IndexingTestBase):
     ],
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestIndexingIndexError(IndexingTestBase):
 
     def test_indexing_index_error(self):
@@ -575,7 +591,6 @@ class TestIndexingIndexError(IndexingTestBase):
     ],
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 class TestIndexingValueError(IndexingTestBase):
 
     def test_indexing_value_error(self):

@@ -173,32 +173,26 @@ Coding Guidelines
 
 We use `PEP8 <https://www.python.org/dev/peps/pep-0008/>`_ and a part of `OpenStack Style Guidelines <https://docs.openstack.org/developer/hacking/>`_ related to general coding style as our basic style guidelines.
 
-You can use ``autopep8`` and ``flake8`` commands to check your code.
+You can use ``pre-commit`` to check your code.
+First install it with the following command::
 
-In order to avoid confusion from using different tool versions, we pin the versions of those tools.
-Install them with the following command (from within the top directory of CuPy repository)::
-
-  $ pip install -e '.[stylecheck]'
+  $ pip install pre-commit
 
 And check your code with::
 
-  $ autopep8 path/to/your/code.py
-  $ flake8 path/to/your/code.py
+  $ pre-commit run -a
 
-To check Cython code, use ``.flake8.cython`` configuration file::
+The above command runs various checks listed in the ``.pre-commit-config.yaml`` file, including linting (detect potential errors), formatting (enforce PEP8), and so on.
+If you want to automate the checking process, you can install the pre-commit hook::
 
-  $ flake8 --config=.flake8.cython path/to/your/cython/code.pyx
+  $ pre-commit install
 
-The ``autopep8`` supports automatically correct Python code to conform to the PEP 8 style guide::
+Once installed, your code should be checked each time you commit.
+Before sending a pull request, be sure to check that your code passes the ``pre-commit`` checking.
 
-  $ autopep8 --in-place path/to/your/code.py
-
-The ``flake8`` command lets you know the part of your code not obeying our style guidelines.
-Before sending a pull request, be sure to check that your code passes the ``flake8`` checking.
-
-Note that ``flake8`` command is not perfect.
+Note that ``pre-commit`` check is not perfect.
 It does not check some of the style guidelines.
-Here is a (not-complete) list of the rules that ``flake8`` cannot check.
+Here is a (not-complete) list of the rules that ``pre-commit`` cannot check.
 
 * Relative imports are prohibited. [H304]
 * Importing non-module symbols is prohibited.
@@ -214,7 +208,7 @@ Once you send a pull request, your coding style is automatically checked by `Git
 The reviewing process starts after the check passes.
 
 The CuPy is designed based on NumPy's API design. CuPy's source code and documents contain the original NumPy ones.
-Please note the followings when writing the document.
+Please note the following when writing the document.
 
 * In order to identify overlapping parts, it is preferable to add some remarks
   that this document is just copied or altered from the original one. It is
@@ -322,55 +316,33 @@ In addition to the :ref:`coding-guide` mentioned above, the following rules are 
    We are incrementally applying the above style.
    Some existing tests may be using the old style (``self.assertRaises``, etc.), but all newly written tests should follow the above style.
 
-Even if your patch includes GPU-related code, your tests should not fail without GPU capability.
-Test functions that require CUDA must be tagged by the ``cupy.testing.attr.gpu``::
+In order to write tests for multiple GPUs, use ``cupy.testing.multi_gpu()`` decorators instead::
 
   import unittest
-  from cupy.testing import attr
+  from cupy import testing
 
   class TestMyFunc(unittest.TestCase):
       ...
 
-      @attr.gpu
-      def test_my_gpu_func(self):
-          ...
-
-The functions tagged by the ``gpu`` decorator are skipped if ``CUPY_TEST_GPU_LIMIT=0`` environment variable is set.
-We also have the ``cupy.testing.attr.cudnn`` decorator to let ``pytest`` know that the test depends on cuDNN.
-The test functions decorated by ``cudnn`` are skipped if ``-m='not cudnn'`` is given.
-
-The test functions decorated by ``gpu`` must not depend on multiple GPUs.
-In order to write tests for multiple GPUs, use ``cupy.testing.attr.multi_gpu()`` decorators instead::
-
-  import unittest
-  from cupy.testing import attr
-
-  class TestMyFunc(unittest.TestCase):
-      ...
-
-      @attr.multi_gpu(2)  # specify the number of required GPUs here
+      @testing.multi_gpu(2)  # specify the number of required GPUs here
       def test_my_two_gpu_func(self):
           ...
 
-If your test requires too much time, add ``cupy.testing.attr.slow`` decorator.
+If your test requires too much time, add ``cupy.testing.slow`` decorator.
 The test functions decorated by ``slow`` are skipped if ``-m='not slow'`` is given::
 
   import unittest
-  from cupy.testing import attr
+  from cupy import testing
 
   class TestMyFunc(unittest.TestCase):
       ...
 
-      @attr.slow
+      @testing.slow
       def test_my_slow_func(self):
           ...
 
-.. note::
-   If you want to specify more than two attributes, use ``and`` operator like ``-m='not cudnn and not slow'``.
-   See detail in `the document of pytest <https://docs.pytest.org/en/latest/example/markers.html>`_.
-
-Once you send a pull request, `Travis-CI <https://travis-ci.org/cupy/cupy/>`_ automatically checks if your code meets our coding guidelines described above.
-Since Travis-CI does not support CUDA, we cannot run unit tests automatically.
+Once you send a pull request, GitHub Actions automatically checks if your code meets our coding guidelines described above.
+Since GitHub Actions does not support CUDA, we cannot run unit tests automatically.
 The reviewing process starts after the automatic check passes.
 Note that reviewers will test your code without the option to check CUDA-related code.
 
@@ -440,3 +412,14 @@ For example, if you only run your CuPy build with NVIDIA P100 and V100, you can 
   $ export CUPY_NVCC_GENERATE_CODE=arch=compute_60,code=sm_60;arch=compute_70,code=sm_70
 
 See :doc:`reference/environment` for the description.
+
+Development on Microsoft Windows
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+CuPy uses symbolic links in the source tree.
+If you are developing on Windows (outside of WSL), you will need additional setup before cloning the CuPy repository.
+
+* Run ``git config --global core.symlinks true`` to enable symbolic link support in Git.
+* `Activate Developer Mode <https://learn.microsoft.com/en-us/windows/apps/get-started/enable-your-device-for-development#activate-developer-mode>`_ to allow Git using symbolic link without Administrator privilege.
+
+Once configured, you can clone the repository by ``git clone --recursive https://github.com/cupy/cupy.git``.

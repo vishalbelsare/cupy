@@ -36,6 +36,7 @@ IF CUPY_USE_CUDA_PYTHON:
     ctypedef cudaDeviceAttr DeviceAttr
     ctypedef cudaMemoryAdvise MemoryAdvise
 
+    ctypedef cudaStream_t Stream
     ctypedef cudaStreamCallback_t StreamCallback
     ctypedef cudaHostFn_t HostFn
 
@@ -172,6 +173,7 @@ cpdef check_status(int status)
 
 cpdef int driverGetVersion() except? -1
 cpdef int runtimeGetVersion() except? -1
+cpdef int _getCUDAMajorVersion() except? -1
 
 
 ###############################################################################
@@ -264,6 +266,10 @@ cpdef memPoolSetAttribute(intptr_t, int, object)
 
 cpdef intptr_t streamCreate() except? 0
 cpdef intptr_t streamCreateWithFlags(unsigned int flags) except? 0
+cpdef intptr_t streamCreateWithPriority(unsigned int flags,
+                                        int priority) except? 0
+cpdef unsigned int streamGetFlags(intptr_t stream) except? 0
+cpdef int streamGetPriority(intptr_t stream) except? 0
 cpdef streamDestroy(intptr_t stream)
 cpdef streamSynchronize(intptr_t stream)
 cpdef streamAddCallback(intptr_t stream, callback, intptr_t arg,
@@ -294,16 +300,18 @@ cdef _ensure_context()
 # Texture
 ##############################################################################
 
-cpdef uintmax_t createTextureObject(intptr_t ResDesc, intptr_t TexDesc)
+cpdef uintmax_t createTextureObject(
+    intptr_t ResDesc, intptr_t TexDesc) except? 0
 cpdef destroyTextureObject(uintmax_t texObject)
-cdef ChannelFormatDesc getChannelDesc(intptr_t array)
-cdef ResourceDesc getTextureObjectResourceDesc(uintmax_t texobj)
-cdef TextureDesc getTextureObjectTextureDesc(uintmax_t texobj)
-cdef Extent make_Extent(size_t w, size_t h, size_t d)
-cdef Pos make_Pos(size_t x, size_t y, size_t z)
-cdef PitchedPtr make_PitchedPtr(intptr_t d, size_t p, size_t xsz, size_t ysz)
+cdef ChannelFormatDesc getChannelDesc(intptr_t array) except*
+cdef ResourceDesc getTextureObjectResourceDesc(uintmax_t texobj) except*
+cdef TextureDesc getTextureObjectTextureDesc(uintmax_t texobj) except*
+cdef Extent make_Extent(size_t w, size_t h, size_t d) except*
+cdef Pos make_Pos(size_t x, size_t y, size_t z) except*
+cdef PitchedPtr make_PitchedPtr(
+    intptr_t d, size_t p, size_t xsz, size_t ysz) except*
 
-cpdef uintmax_t createSurfaceObject(intptr_t ResDesc)
+cpdef uintmax_t createSurfaceObject(intptr_t ResDesc) except? 0
 cpdef destroySurfaceObject(uintmax_t surfObject)
 # TODO(leofang): add cudaGetSurfaceObjectResourceDesc
 
@@ -317,3 +325,12 @@ cpdef graphExecDestroy(intptr_t graphExec)
 cpdef intptr_t graphInstantiate(intptr_t graph) except? 0
 cpdef graphLaunch(intptr_t graphExec, intptr_t stream)
 cpdef graphUpload(intptr_t graphExec, intptr_t stream)
+cpdef graphDebugDotPrint(intptr_t graph, str path, unsigned int flags)
+
+
+##############################################################################
+# Profiler
+##############################################################################
+
+cpdef profilerStart()
+cpdef profilerStop()

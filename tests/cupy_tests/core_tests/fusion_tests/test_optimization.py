@@ -19,7 +19,7 @@ class CreateMock(object):
 
     def check_number_of_ops(
             self, loops, memories, variables, lookup, mutate):
-        # TODO(asi1024): Uncomment after replace fusion implementaiton.
+        # TODO(asi1024): Uncomment after replace fusion implementation.
 
         # assert isinstance(loops, int)
         # assert isinstance(memories, int)
@@ -54,7 +54,6 @@ def check_number_of_ops(
     return wrapper
 
 
-@testing.gpu
 class TestOptimizations(unittest.TestCase):
 
     def generate_inputs(self, xp):

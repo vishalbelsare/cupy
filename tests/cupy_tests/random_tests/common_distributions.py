@@ -5,7 +5,6 @@ import numpy
 
 import cupy
 from cupy import testing
-from cupy.testing import _attr
 from cupy.testing import _condition
 
 
@@ -160,9 +159,9 @@ beta_params = [
     {'a': 1.0, 'b': 3.0},
     {'a': 3.0, 'b': 3.0},
     {'a': 3.0, 'b': 1.0},
-    {'a': [1.0, 3.0, 5.0, 6.0, 9.0], 'b':7.0},
+    {'a': [1.0, 3.0, 5.0, 6.0, 9.0], 'b': 7.0},
     {'a': 5.0, 'b': [1.0, 5.0, 8.0, 1.0, 3.0]},
-    {'a': [8.0, 6.0, 2.0, 4.0, 7.0], 'b':[3.0, 1.0, 2.0, 8.0, 1.0]}]
+    {'a': [8.0, 6.0, 2.0, 4.0, 7.0], 'b': [3.0, 1.0, 2.0, 8.0, 1.0]}]
 
 
 class Beta:
@@ -191,7 +190,7 @@ class StandardExponential:
     def test_standard_exponential(self):
         self.generate(size=(3, 2))
 
-    @_attr.slow
+    @testing.slow
     @_condition.repeat(10)
     def test_standard_exponential_isfinite(self):
         x = self.generate(size=10**7)

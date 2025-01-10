@@ -21,6 +21,8 @@ Univariate interpolation
    Akima1DInterpolator
    PPoly
    BPoly
+   CubicSpline
+   interp1d
 
 1-D Splines
 -----------
@@ -30,18 +32,47 @@ Univariate interpolation
 
    BSpline
    make_interp_spline
+   make_lsq_spline
 
    splder
    splantider
 
-
-Multivariate interpolation
---------------------------
+Smoothing Splines
+-----------------
 
 .. autosummary::
    :toctree: generated/
 
+   UnivariateSpline
+   InterpolatedUnivariateSpline
+   LSQUnivariateSpline
+
+Multivariate interpolation
+--------------------------
+
+Unstructured data:
+
+.. autosummary::
+   :toctree: generated/
+
+   LinearNDInterpolator
+   NearestNDInterpolator
+   CloughTocher2DInterpolator
    RBFInterpolator
+
+
+For data on a grid:
+
+.. autosummary::
+   :toctree: generated/
+
    interpn
    RegularGridInterpolator
 
+Tensor product polynomials:
+
+.. autosummary::
+   :toctree: generated/
+
+   NdPPoly
+   NdBSpline

@@ -6,9 +6,9 @@ import pytest
 
 import cupy
 from cupy import testing
+from cupy.exceptions import ComplexWarning
 
 
-@testing.gpu
 class TestFlatiter(unittest.TestCase):
 
     def test_base(self):
@@ -62,7 +62,6 @@ class TestFlatiter(unittest.TestCase):
     {'shape': (), 'index': slice(None)},
     {'shape': (10,), 'index': slice(None)},
 )
-@testing.gpu
 class TestFlatiterSubscript(unittest.TestCase):
 
     @testing.for_CF_orders()
@@ -112,7 +111,7 @@ class TestFlatiterSubscript(unittest.TestCase):
         a = xp.zeros(self.shape, dtype=a_dtype, order=order)
         v = testing.shaped_arange((3,), xp, v_dtype, order)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', numpy.ComplexWarning)
+            warnings.simplefilter('ignore', ComplexWarning)
             a.flat[self.index] = v
         return a
 
@@ -124,7 +123,6 @@ class TestFlatiterSubscript(unittest.TestCase):
     {'shape': (2, 3, 4), 'index': cupy.array([0])},
     {'shape': (2, 3, 4), 'index': [0]},
 )
-@testing.gpu
 class TestFlatiterSubscriptIndexError(unittest.TestCase):
 
     @testing.for_all_dtypes()

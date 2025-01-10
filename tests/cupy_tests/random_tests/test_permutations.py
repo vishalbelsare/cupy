@@ -12,7 +12,6 @@ from cupy.testing import _condition
     {'seed': None},
     {'seed': 0},
 )
-@testing.gpu
 class TestPermutations(unittest.TestCase):
 
     def _xp_random(self, xp):
@@ -71,7 +70,6 @@ class TestPermutations(unittest.TestCase):
         testing.assert_allclose(pa, pb)
 
 
-@testing.gpu
 class TestShuffle(unittest.TestCase):
 
     # Test ranks
@@ -114,7 +112,6 @@ class TestShuffle(unittest.TestCase):
 @testing.parameterize(*(testing.product({
     'num': [0, 1, 100, 1000, 10000, 100000],
 })))
-@testing.gpu
 class TestPermutationSoundness(unittest.TestCase):
 
     def setUp(self):
@@ -125,7 +122,7 @@ class TestPermutationSoundness(unittest.TestCase):
 
     @_condition.repeat(3)
     def test_permutation_soundness(self):
-        assert(numpy.sort(self.a) == numpy.arange(self.num)).all()
+        assert (numpy.sort(self.a) == numpy.arange(self.num)).all()
 
 
 @testing.parameterize(*(testing.product({
@@ -133,7 +130,6 @@ class TestPermutationSoundness(unittest.TestCase):
     'gap': [1, 2, 3, 5, 7],
     'mask': [1, 2, 4, 8, 16, 32, 64, 128],
 })))
-@testing.gpu
 class TestPermutationRandomness(unittest.TestCase):
 
     num = 256
@@ -152,7 +148,7 @@ class TestPermutationRandomness(unittest.TestCase):
     # frequency of appearance of 0 and 1 at each bit position of
     # whole elements in the sub-array should become similar
     # when elements count of original array is 2^N.
-    # Note that this is not an establishd method to check randomness.
+    # Note that this is not an established method to check randomness.
     # TODO(anaruse): implement randomness check using some established methods.
     @_condition.repeat_with_success_at_least(5, 3)
     def test_permutation_randomness(self):

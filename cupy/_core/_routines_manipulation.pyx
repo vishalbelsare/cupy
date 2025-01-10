@@ -1,19 +1,18 @@
 # distutils: language = c++
 import functools
-import sys
 
 import numpy
 
 from cupy._core._kernel import ElementwiseKernel
 from cupy._core._ufuncs import elementwise_copy
 import cupy._core.core as core
+from cupy.exceptions import AxisError
 
 cimport cpython  # NOQA
 cimport cython  # NOQA
 from libcpp cimport vector
 
 from cupy._core._dtype cimport get_dtype, _raise_if_invalid_cast
-from cupy._core cimport _routines_indexing as _indexing
 from cupy._core cimport core
 from cupy._core.core cimport _ndarray_base
 from cupy._core cimport internal
@@ -392,7 +391,7 @@ cpdef _ndarray_base _transpose(
     for i in range(axes_size):
         axis = axes[i]
         if axis < -ndim or axis >= ndim:
-            raise numpy.AxisError(axis, ndim)
+            raise AxisError(axis, ndim)
         axis %= ndim
         a_axes.push_back(axis)
         if axis_flags[axis]:
@@ -417,7 +416,7 @@ cpdef _ndarray_base _transpose(
 
 
 cpdef array_split(_ndarray_base ary, indices_or_sections, Py_ssize_t axis):
-    cdef Py_ssize_t i, ndim, size, each_size, index, prev, offset, stride
+    cdef Py_ssize_t i, ndim, size, each_size, index, prev, stride
     cdef Py_ssize_t num_large
     cdef shape_t shape
 
@@ -590,13 +589,12 @@ cpdef _ndarray_base concatenate_method(
     cdef int ndim0
     cdef int i
     cdef _ndarray_base a, a0
-    cdef shape_t shape
 
     if dtype is not None:
         dtype = get_dtype(dtype)
 
     dev_id = device.get_device_id()
-    arrays = _preprocess_args(dev_id, tup, False)
+    arrays = _preprocess_args(dev_id, tup, False)[0]
 
     # Check if the input is not an empty sequence
     if len(arrays) == 0:
@@ -618,7 +616,7 @@ cpdef _ndarray_base concatenate_method(
     ndim0 = a0._shape.size()
     for o in arrays[1:]:
         a = o
-        if a._shape.size() != ndim0:
+        if <int>(a._shape.size()) != ndim0:
             raise ValueError(
                 'All arrays to concatenate must have the same ndim')
 
@@ -764,8 +762,6 @@ cdef _get_strides_for_nocopy_reshape(
 
     ndim = shape.size()
     dim = 0
-    sh = shape[0]
-    st = strides[0]
     last_stride = shape[0] * strides[0]
     for i in range(newshape.size()):
         size = newshape[i]

@@ -5,7 +5,6 @@ from cupy import testing
 import cupyx.scipy.special  # NOQA
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestSpecial:
 
@@ -64,7 +63,6 @@ class TestSpecial:
         return scp.special.yn(n[:, xp.newaxis], a[xp.newaxis, :])
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestFusionSpecial(unittest.TestCase):
 
@@ -117,6 +115,7 @@ class TestFusionSpecial(unittest.TestCase):
     def test_k1e(self):
         self.check_unary('k1e')
 
+    @testing.with_requires("scipy>=1.14")
     @testing.for_dtypes(['e', 'f', 'd'])
     @testing.numpy_cupy_allclose(rtol=1e-5, scipy_name='scp')
     def test_chbevl_dependent_fusion(self, dtype, xp, scp):

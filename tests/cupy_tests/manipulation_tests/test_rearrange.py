@@ -7,7 +7,6 @@ import cupy
 from cupy import testing
 
 
-@testing.gpu
 @testing.parameterize(
     {'shape': (10,), 'shift': 2, 'axis': None},
     {'shape': (5, 2), 'shift': 1, 'axis': None},
@@ -46,11 +45,19 @@ class TestRoll(unittest.TestCase):
 
 class TestRollTypeError(unittest.TestCase):
 
+    @testing.with_requires("numpy>=2.1.2")
+    def test_roll_invalid_shift_castable(self):
+        for xp in (numpy, cupy):
+            x = testing.shaped_arange((5, 2), xp)
+            # Weird but works due to `int` call
+            xp.roll(x, '0', axis=0)
+
+    @testing.with_requires("numpy>=2.1.2")
     def test_roll_invalid_shift(self):
         for xp in (numpy, cupy):
             x = testing.shaped_arange((5, 2), xp)
-            with pytest.raises(TypeError):
-                xp.roll(x, '0', axis=0)
+            with pytest.raises(ValueError):
+                xp.roll(x, 'a', axis=0)
 
     def test_roll_invalid_axis_type(self):
         for xp in (numpy, cupy):
@@ -84,7 +91,6 @@ class TestRollValueError(unittest.TestCase):
                 xp.roll(x, shift, axis=self.axis)
 
 
-@testing.gpu
 class TestFliplr(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -107,7 +113,6 @@ class TestFliplr(unittest.TestCase):
                 xp.fliplr(x)
 
 
-@testing.gpu
 class TestFlipud(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -130,7 +135,6 @@ class TestFlipud(unittest.TestCase):
                 xp.flipud(x)
 
 
-@testing.gpu
 class TestFlip(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -215,7 +219,6 @@ class TestFlip(unittest.TestCase):
                 xp.flip(x, -3)
 
 
-@testing.gpu
 class TestRot90(unittest.TestCase):
 
     @testing.for_all_dtypes()

@@ -6,6 +6,7 @@ import pytest
 
 import cupy
 from cupy import testing
+from cupy.exceptions import ComplexWarning
 
 
 @testing.parameterize(
@@ -75,7 +76,6 @@ from cupy import testing
     {'shape': (2, 0), 'transpose': None,
      'indexes': (1, slice(None, None, None))},
 )
-@testing.gpu
 class TestArrayIndexingParameterized(unittest.TestCase):
 
     _getitem_hip_skip_condition = [
@@ -119,7 +119,6 @@ class TestArrayIndexingParameterized(unittest.TestCase):
     {'shape': (2, 3, 4), 'transpose': None,
      'indexes': (Ellipsis, Ellipsis, 1)},
 )
-@testing.gpu
 class TestArrayIndexIndexError(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -141,7 +140,6 @@ class TestArrayIndexIndexError(unittest.TestCase):
     {'error_class': TypeError,
      'indexes': (slice(None, None, (0, 0)), )},
 )
-@testing.gpu
 class TestArrayIndexOtherError(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -152,7 +150,6 @@ class TestArrayIndexOtherError(unittest.TestCase):
                 a[self.indexes]
 
 
-@testing.gpu
 class TestArrayIndex(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -183,7 +180,7 @@ class TestArrayIndex(unittest.TestCase):
         a = xp.zeros((2, 3, 4), dtype=dst_type)
         b = testing.shaped_arange((2, 3, 4), xp, src_type)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', numpy.ComplexWarning)
+            warnings.simplefilter('ignore', ComplexWarning)
             a[:] = b
         return a
 
@@ -232,5 +229,5 @@ class TestSetItemCompatBroadcast:
     def test_remain0d(self, xp):
         dtype = int
         a = xp.zeros((2, 3, 4), dtype)
-        a[0, 1, 2] = testing.shaped_arange((1, 1, 1), xp, dtype)
+        a[0, 1, 2] = testing.shaped_arange((), xp, dtype)
         return a
