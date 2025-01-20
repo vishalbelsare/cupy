@@ -2,6 +2,8 @@ import threading
 import unittest
 from unittest import mock
 
+import pytest
+
 import cupy
 from cupy import testing
 from cupy_tests.core_tests.fusion_tests import fusion_utils
@@ -21,7 +23,6 @@ class FusionTestBase(unittest.TestCase):
         return (x, y), {}
 
 
-@testing.gpu
 class TestFusionInplaceUpdate(FusionTestBase):
 
     @testing.for_all_dtypes(no_bool=True)
@@ -47,7 +48,6 @@ class TestFusionInplaceUpdate(FusionTestBase):
         return func
 
 
-@testing.gpu
 class TestFusionTuple(FusionTestBase):
 
     @testing.for_all_dtypes(no_complex=True)
@@ -135,7 +135,6 @@ class TestReturnNone(FusionTestBase):
         return impl
 
 
-@testing.gpu
 class TestFusionNoneParams(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -180,7 +179,6 @@ class TestSpecialValues(FusionTestBase):
         return func
 
 
-@testing.gpu
 class TestFusionDecorator(unittest.TestCase):
     def test_without_paren(self):
         @cupy.fuse
@@ -201,7 +199,6 @@ class TestFusionDecorator(unittest.TestCase):
         assert func_w_paren.__doc__ == 'Fuse with parentheses'
 
 
-@testing.gpu
 class TestFusionKernelName(unittest.TestCase):
 
     def check(self, xp, func, expected_name, is_elementwise):
@@ -217,7 +214,7 @@ class TestFusionKernelName(unittest.TestCase):
 
             with mock.patch(target_full_name) as kernel:  # NOQA
                 func(a, b, c)
-                # TODO(asi1024): Uncomment after replace fusion implementaiton.
+                # TODO(asi1024): Uncomment after replace fusion implementation.
                 # kernel.assert_called_once()
                 # self.assertEqual(kernel.call_args.args[0], expected_name)
 
@@ -331,7 +328,6 @@ class TestFusionCompile(unittest.TestCase):
         return f(x, y)
 
 
-@testing.gpu
 class TestFusionGetArrayModule(FusionTestBase):
 
     @testing.for_all_dtypes()
@@ -405,7 +401,6 @@ class TestFusionThread(unittest.TestCase):
         return xp.concatenate(out)
 
 
-@testing.gpu
 class TestFusionMultiDevice(unittest.TestCase):
 
     @testing.multi_gpu(2)
@@ -427,3 +422,17 @@ class TestFusionMultiDevice(unittest.TestCase):
             out2 = f(x2, y2)
 
         return out1, out2
+
+
+class TestFusionInvalid():
+
+    def test_branch(self):
+        @cupy.fuse()
+        def f(x):
+            if x > 0:
+                return x
+            return -x
+
+        x = testing.shaped_random((3, 3), cupy, cupy.int64, seed=0)
+        with pytest.raises(TypeError, match="Python scalar"):
+            f(x)

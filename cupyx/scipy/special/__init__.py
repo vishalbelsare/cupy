@@ -12,6 +12,8 @@ from cupyx.scipy.special._bessel import k1e  # NOQA
 from cupyx.scipy.special._bessel import y0  # NOQA
 from cupyx.scipy.special._bessel import y1  # NOQA
 from cupyx.scipy.special._bessel import yn  # NOQA
+from cupyx.scipy.special._spherical_bessel import spherical_yn  # NOQA
+from cupyx.scipy.special._wright_bessel import wright_bessel  # NOQA
 
 # Raw statistical functions
 from cupyx.scipy.special._stats_distributions import bdtr  # NOQA
@@ -83,12 +85,17 @@ from cupyx.scipy.special._lpmv import lpmv  # NOQA
 from cupyx.scipy.special._sph_harm import sph_harm  # NOQA
 
 # Other special functions
+from cupyx.scipy.special._binom import binom  # NOQA
 from cupyx.scipy.special._exp1 import exp1  # NOQA
 from cupyx.scipy.special._expi import expi  # NOQA
 from cupyx.scipy.special._expn import expn  # NOQA
 from cupyx.scipy.special._softmax import softmax  # NOQA
 from cupyx.scipy.special._logsoftmax import log_softmax  # NOQA
 from cupyx.scipy.special._zeta import zeta  # NOQA
+from cupyx.scipy.special._zetac import zetac  # NOQA
+from cupyx.scipy.special._lambertw import lambertw  # NOQA
+from cupyx.scipy.special._sici import sici  # NOQA
+from cupyx.scipy.special._sici import shichi  # NOQA
 
 # Convenience functions
 from cupyx.scipy.special._basic import cbrt  # NOQA
@@ -101,9 +108,17 @@ from cupyx.scipy.special._basic import tandg  # NOQA
 from cupyx.scipy.special._basic import cotdg  # NOQA
 from cupyx.scipy.special._basic import log1p  # NOQA
 from cupyx.scipy.special._basic import expm1  # NOQA
+from cupyx.scipy.special._basic import exprel  # NOQA
 from cupyx.scipy.special._basic import cosm1  # NOQA
-from cupy._math.rounding import round_ as round  # NOQA
+from cupy._math.rounding import round  # NOQA
 from cupyx.scipy.special._xlogy import xlogy  # NOQA
 from cupyx.scipy.special._xlogy import xlog1py  # NOQA
 from cupyx.scipy.special._logsumexp import logsumexp  # NOQA
 from cupy._math.special import sinc  # NOQA
+
+# Elliptic functions
+from cupyx.scipy.special._ellip import ellipk  # NOQA
+from cupyx.scipy.special._ellip import ellipkm1  # NOQA
+from cupyx.scipy.special._ellip import ellipj  # NOQA
+from cupyx.scipy.special._ellip import ellipkinc  # NOQA
+from cupyx.scipy.special._ellip import ellipeinc  # NOQA

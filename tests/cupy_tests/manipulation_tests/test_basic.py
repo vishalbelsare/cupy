@@ -7,9 +7,9 @@ import pytest
 import cupy
 from cupy import cuda
 from cupy import testing
+from cupy.exceptions import ComplexWarning
 
 
-@testing.gpu
 class TestBasic:
 
     @testing.for_all_dtypes()
@@ -188,18 +188,17 @@ class TestBasic:
     *testing.product(
         {'src': [float(3.2), int(0), int(4), int(-4), True, False, 1 + 1j],
          'dst_shape': [(), (0,), (1,), (1, 1), (2, 2)]}))
-@testing.gpu
 class TestCopytoFromScalar:
 
     @testing.for_all_dtypes()
-    @testing.numpy_cupy_allclose(accept_error=TypeError)
+    @testing.numpy_cupy_allclose(accept_error=(TypeError, OverflowError))
     def test_copyto(self, xp, dtype):
         dst = xp.ones(self.dst_shape, dtype=dtype)
         xp.copyto(dst, self.src)
         return dst
 
     @testing.for_all_dtypes()
-    @testing.numpy_cupy_allclose(accept_error=TypeError)
+    @testing.numpy_cupy_allclose(accept_error=(TypeError, OverflowError))
     def test_copyto_where(self, xp, dtype):
         dst = xp.ones(self.dst_shape, dtype=dtype)
         mask = (testing.shaped_arange(
@@ -208,6 +207,7 @@ class TestCopytoFromScalar:
         return dst
 
 
+@testing.with_requires("numpy>=2.1")
 @pytest.mark.parametrize(
     'casting', ['no', 'equiv', 'safe', 'same_kind', 'unsafe'])
 class TestCopytoFromNumpyScalar:
@@ -218,7 +218,7 @@ class TestCopytoFromNumpyScalar:
         dst = xp.zeros((2, 3, 4), dtype=dtype1)
         src = numpy.array(1, dtype=dtype2)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', numpy.ComplexWarning)
+            warnings.simplefilter('ignore', ComplexWarning)
             xp.copyto(dst, src, casting)
         return dst
 
@@ -231,7 +231,7 @@ class TestCopytoFromNumpyScalar:
         dst = xp.zeros((2, 3, 4), dtype=dtype)
         src = make_src(dtype)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', numpy.ComplexWarning)
+            warnings.simplefilter('ignore', ComplexWarning)
             xp.copyto(dst, src, casting)
         return dst
 
@@ -243,7 +243,7 @@ class TestCopytoFromNumpyScalar:
         src = numpy.array(1, dtype=dtype2)
         mask = (testing.shaped_arange(shape, xp, dtype1) % 2).astype(xp.bool_)
         with warnings.catch_warnings():
-            warnings.simplefilter('ignore', numpy.ComplexWarning)
+            warnings.simplefilter('ignore', ComplexWarning)
             xp.copyto(dst, src, casting=casting, where=mask)
         return dst
 

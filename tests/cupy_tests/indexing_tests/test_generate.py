@@ -10,7 +10,6 @@ from cupy._indexing import generate
 from cupy import testing
 
 
-@testing.gpu
 class TestIndices(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -35,7 +34,6 @@ class TestIndices(unittest.TestCase):
                 xp.indices((1, 2, 3, 4), dtype=xp.bool_)
 
 
-@testing.gpu
 class TestIX_(unittest.TestCase):
 
     @testing.numpy_cupy_array_equal()
@@ -58,7 +56,6 @@ class TestIX_(unittest.TestCase):
         return xp.ix_(xp.array([True, False] * 2))
 
 
-@testing.gpu
 class TestR_(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -77,7 +74,8 @@ class TestR_(unittest.TestCase):
         return xp.r_[a, b, c]
 
     @testing.for_all_dtypes()
-    @testing.numpy_cupy_array_equal()
+    @testing.numpy_cupy_array_equal(
+        type_check=(numpy.lib.NumpyVersion(numpy.__version__) >= "1.25.0"))
     def test_r_2(self, xp, dtype):
         a = xp.array([1, 2, 3], dtype)
         return xp.r_[a, 0, 0, a]
@@ -111,8 +109,12 @@ class TestR_(unittest.TestCase):
         with self.assertRaises(ValueError):
             cupy.r_[a, b]
 
+    @testing.numpy_cupy_array_equal(
+        type_check=(numpy.lib.NumpyVersion(numpy.__version__) >= "1.25.0"))
+    def test_r_scalars(self, xp):
+        return xp.r_[0, 0.5, -1, 0.3]
 
-@testing.gpu
+
 class TestC_(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -138,7 +140,6 @@ class TestC_(unittest.TestCase):
             cupy.c_[a, b]
 
 
-@testing.gpu
 class TestAxisConcatenator(unittest.TestCase):
 
     def test_AxisConcatenator_init1(self):
@@ -150,7 +151,6 @@ class TestAxisConcatenator(unittest.TestCase):
         assert len(a) == 0
 
 
-@testing.gpu
 class TestUnravelIndex(unittest.TestCase):
 
     @testing.for_orders(['C', 'F', None])
@@ -186,7 +186,6 @@ class TestUnravelIndex(unittest.TestCase):
                 xp.unravel_index(a, (6, 4), order=order)
 
 
-@testing.gpu
 class TestRavelMultiIndex(unittest.TestCase):
 
     @testing.for_orders(['C', 'F', None])

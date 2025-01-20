@@ -5,30 +5,32 @@ import pytest
 
 import cupy
 from cupy import testing
+from cupy.exceptions import AxisError
 
 
 class TestPackageRequirements:
     def test_installed(self):
         assert testing.installed('cupy')
         assert testing.installed('cupy>9', 'numpy>=1.12')
-        assert testing.installed('numpy>=1.10,<=2.0')
-        assert not testing.installed('numpy>=2.0')
+        assert testing.installed('numpy>=1.10,<=3.0')
+        assert not testing.installed('numpy>=3.0')
         assert not testing.installed('numpy>1.10,<1.9')
+        # This is a dummy package name that is unlikely to be installed
+        assert not testing.installed('supercalifragilisticexpialidocious')
 
     def test_numpy_satisfies(self):
         assert testing.numpy_satisfies('>1.10')
-        assert not testing.numpy_satisfies('>=2.10')
+        assert not testing.numpy_satisfies('>=3.0')
 
-    @testing.with_requires('numpy>2.0')
+    @testing.with_requires('numpy>3.0')
     def test_with_requires(self):
-        assert False, 'this should not happen'
+        pytest.fail("this should not happen")
 
 
 @testing.parameterize(*testing.product({
     'xp': [numpy, cupy],
     'shape': [(3, 2), (), (3, 0, 2)],
 }))
-@testing.gpu
 class TestShapedRandom(unittest.TestCase):
 
     @testing.for_all_dtypes()
@@ -58,7 +60,6 @@ class TestShapedRandom(unittest.TestCase):
 @testing.parameterize(*testing.product({
     'xp': [numpy, cupy],
 }))
-@testing.gpu
 class TestShapedRandomBool(unittest.TestCase):
 
     def test_bool(self):
@@ -180,8 +181,8 @@ class TestAssertFunctionIsCalled(unittest.TestCase):
 
     def test_inner_error(self):
         orig = cupy.ndarray
-        with pytest.raises(numpy.AxisError):
+        with pytest.raises(AxisError):
             with testing.AssertFunctionIsCalled('cupy.ndarray'):
                 cupy.ndarray((2, 3), numpy.float32)
-                raise numpy.AxisError('foo')
+                raise AxisError('foo')
         assert cupy.ndarray is orig

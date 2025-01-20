@@ -5,12 +5,12 @@ import pytest
 
 import cupy
 from cupy import testing
+from cupy.exceptions import AxisError
 
 ignore_runtime_warnings = pytest.mark.filterwarnings(
     "ignore", category=RuntimeWarning)
 
 
-@testing.gpu
 class TestMedian:
 
     @testing.for_all_dtypes()
@@ -52,16 +52,16 @@ class TestMedian:
     def test_median_invalid_axis(self):
         for xp in [numpy, cupy]:
             a = testing.shaped_random((3, 4, 5), xp)
-            with pytest.raises(numpy.AxisError):
+            with pytest.raises(AxisError):
                 return xp.median(a, -a.ndim - 1, keepdims=False)
 
-            with pytest.raises(numpy.AxisError):
+            with pytest.raises(AxisError):
                 return xp.median(a, a.ndim, keepdims=False)
 
-            with pytest.raises(numpy.AxisError):
+            with pytest.raises(AxisError):
                 return xp.median(a, (-a.ndim - 1, 1), keepdims=False)
 
-            with pytest.raises(numpy.AxisError):
+            with pytest.raises(AxisError):
                 return xp.median(a, (0, a.ndim,), keepdims=False)
 
     @testing.for_dtypes('efdFD')
@@ -83,7 +83,6 @@ class TestMedian:
         'keepdims': [True, False]
     })
 )
-@testing.gpu
 class TestMedianAxis:
 
     @testing.for_all_dtypes()
@@ -101,7 +100,6 @@ class TestMedianAxis:
         'overwrite_input': [True, False]
     })
 )
-@testing.gpu
 class TestNanMedian:
 
     zero_density = 0.25
@@ -135,7 +133,6 @@ class TestNanMedian:
         return xp.ascontiguousarray(out)
 
 
-@testing.gpu
 class TestAverage:
 
     _multiprocess_can_split_ = True
@@ -191,7 +188,6 @@ class TestAverage:
         return xp.average(a, weights=w, returned=returned, keepdims=True)
 
 
-@testing.gpu
 class TestMeanVar:
 
     @testing.for_all_dtypes()
@@ -221,7 +217,7 @@ class TestMeanVar:
     @testing.for_all_dtypes(no_complex=True)
     @testing.numpy_cupy_allclose()
     def test_mean_all_float64_dtype(self, xp, dtype):
-        a = xp.full((2, 3, 4), 123456789, dtype=dtype)
+        a = testing.shaped_arange((2, 3, 4), xp, dtype)
         return xp.mean(a, dtype=numpy.float64)
 
     @testing.for_all_dtypes(no_complex=True)
@@ -340,7 +336,6 @@ class TestMeanVar:
         'keepdims': [True, False]
     })
 )
-@testing.gpu
 class TestNanMean:
 
     @testing.for_all_dtypes(no_float16=True)
@@ -362,7 +357,6 @@ class TestNanMean:
         return xp.nanmean(a, axis=self.axis, keepdims=self.keepdims)
 
 
-@testing.gpu
 class TestNanMeanAdditional:
 
     @ignore_runtime_warnings
@@ -510,7 +504,6 @@ class TestNanVarStdAdditional:
     ],
     'func': ['mean', 'std', 'var'],
 }))
-@testing.gpu
 class TestProductZeroLength:
 
     @testing.for_all_dtypes(no_complex=True)

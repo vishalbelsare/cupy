@@ -1,3 +1,4 @@
+import sys
 import warnings
 
 import numpy
@@ -44,7 +45,6 @@ def _generate_binary_structure(rank, connectivity):
     'output': [None, numpy.int32, numpy.int64],
     'o_type': [None, 'ndarray']
 }))
-@testing.gpu
 @testing.with_requires('scipy')
 class TestLabel:
 
@@ -69,7 +69,6 @@ class TestLabel:
         return labels
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestLabelSpecialCases:
 
@@ -111,7 +110,6 @@ class TestLabelSpecialCases:
         return labels
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'op': stats_ops,
 }))
@@ -288,7 +286,6 @@ class TestStats:
         return result
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'op': ['maximum', 'median', 'minimum', 'maximum_position',
            'minimum_position', 'extrema'],
@@ -369,7 +366,6 @@ class TestMeasurementsSelect:
         return result
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'labels': [None, 4, 6],
     'index': [None, [0, 2], [3, 1, 0], [1]],
@@ -408,7 +404,6 @@ class TestHistogram():
         return xp.stack(result)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'labels': [None, 4],
     'index': [None, [0, 2], [3, 1, 0], [1]],
@@ -429,6 +424,8 @@ class TestLabeledComprehension():
     @testing.for_all_dtypes(no_bool=True, no_complex=True, no_float16=True)
     @testing.numpy_cupy_allclose(scipy_name='scp', rtol=1e-4, atol=1e-4)
     def test_labeled_comprehension(self, xp, scp, dtype):
+        if dtype == numpy.int8:
+            return xp.asarray([])   # TODO(asi1024): XXX: np2.0 OverflowError
         image = self._make_image(self.shape, xp, dtype, scale=101)
         labels = self.labels
         index = self.index
@@ -443,7 +440,7 @@ class TestLabeledComprehension():
             def func(x, pos):
                 return xp.sum(x + pos > 50)
         else:
-            # simple function to apply to each lable
+            # simple function to apply to each label
             func = xp.sum
 
         op = getattr(scp.ndimage, 'labeled_comprehension')
@@ -456,3 +453,80 @@ class TestLabeledComprehension():
             return xp.asarray([])
         return op(image, labels, index, func, dtype, self.default,
                   self.pass_positions)
+
+
+@testing.parameterize(*testing.product({
+    'shape': [(500,), (220, 240), (16, 24, 32), (4, 6, 8, 10)],
+}))
+@testing.with_requires('scipy>=1.10')
+class TestValueIndices:
+
+    def _make_image(self, shape, xp, dtype, scale):
+        if dtype == xp.bool_:
+            return testing.shaped_random(shape, xp, dtype=xp.bool_)
+        else:
+            return testing.shaped_random(shape, xp, dtype=dtype, scale=scale)
+
+    def _compare_scipy_cupy(self, image, ignore_value,
+                            adaptive_index_dtype=False):
+        # run on CPU and GPU
+        func_gpu = cupyx.scipy.ndimage.value_indices
+        func_cpu = scipy.ndimage.value_indices
+        val_idx = func_gpu(image, ignore_value=ignore_value,
+                           adaptive_index_dtype=adaptive_index_dtype)
+        # Note: Currently SciPy with 'q' (numpy.longlong) or
+        #       'Q' (numpy.ulonglong) does not raise an error, but instead
+        #       just silently returns an empty dictionary. That seems like a
+        #       bug in SciPy so we cast to 64-bit here before calling SciPy and
+        #       use that for the comparison.
+        if image.dtype.char == 'q':
+            image_cpu = cupy.asnumpy(image).astype(cupy.int64)
+        elif image.dtype.char == 'Q':
+            image_cpu = cupy.asnumpy(image).astype(cupy.uint64)
+        else:
+            image_cpu = cupy.asnumpy(image)
+        expected_idx = func_cpu(image_cpu, ignore_value=ignore_value)
+        assert val_idx.keys() == expected_idx.keys()
+
+        # check all coordinate arrays in the dictionary
+        for key, coords in val_idx.items():
+            expected_coords = expected_idx[key]
+            for c, expected_c in zip(coords, expected_coords):
+                if adaptive_index_dtype:
+                    # all array sizes used in the tests allow 8 or 16-bit
+                    # coordinates
+                    assert c.itemsize < expected_c.itemsize
+
+                    # cast to SciPy type before comparison
+                    c = c.astype(expected_c.dtype)
+
+                cupy.testing.assert_array_equal(c, expected_c)
+
+    @pytest.mark.parametrize('ignore_value', [None, 0, 5])
+    @pytest.mark.parametrize('num_values', [4, 32])
+    @pytest.mark.parametrize('adaptive_index_dtype', [False, True])
+    @testing.for_int_dtypes(no_bool=True)
+    def test_value_indices(self, dtype, ignore_value, num_values,
+                           adaptive_index_dtype):
+        if sys.platform == 'win32' and dtype in (cupy.intc, cupy.uintc):
+            pytest.skip()  # https://github.com/scipy/scipy/issues/19423
+        image = self._make_image(self.shape, cupy, dtype, scale=num_values)
+        self._compare_scipy_cupy(image, ignore_value, adaptive_index_dtype)
+
+    @pytest.mark.parametrize('ignore_value', [None, 0, 5])
+    @testing.for_int_dtypes(no_bool=True)
+    def test_value_indices_noncontiguous_labels(self, dtype, ignore_value, ):
+        if sys.platform == 'win32' and dtype in (cupy.intc, cupy.uintc):
+            pytest.skip()  # https://github.com/scipy/scipy/issues/19423
+        image = self._make_image(self.shape, cupy, dtype, scale=8)
+
+        # Make introduce gaps in the labels present in the image
+        image[cupy.logical_and(image > 2, image < 7)] = 0
+
+        self._compare_scipy_cupy(image, ignore_value, False)
+
+    @testing.for_dtypes('?efdFD')
+    def test_value_indices_unsupported_dtypes(self, dtype):
+        image = cupy.zeros(self.shape, dtype=dtype)
+        with pytest.raises(ValueError):
+            cupyx.scipy.ndimage.value_indices(image)

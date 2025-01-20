@@ -23,12 +23,11 @@ def asarray_chkfinite(a, dtype=None, order=None):
 
     a = cupy.asarray(a, dtype=dtype, order=order)
     if not cupy.isfinite(a).all():
-        raise ValueError(
-            "array must not contain Infs or NaNs")
+        raise ValueError("array must not contain Infs or NaNs")
     return a
 
 
-def asfarray(a, dtype=cupy.float_):
+def asfarray(a, dtype=cupy.float64):
     """Converts array elements to float type.
 
     Args:
@@ -42,7 +41,7 @@ def asfarray(a, dtype=cupy.float_):
 
     """
     if not cupy.issubdtype(dtype, cupy.inexact):
-        dtype = cupy.float_
+        dtype = cupy.float64
     return cupy.asarray(a, dtype=dtype)
 
 
@@ -96,14 +95,14 @@ def require(a, dtype=None, requirements=None):
         try:
             return cupy.asanyarray(a, dtype=dtype)
         except TypeError:
-            raise(ValueError("Incorrect dtype \"{}\" provided".format(dtype)))
+            raise ValueError("Incorrect dtype \"{}\" provided".format(dtype))
     else:
         try:
             requirements = {possible_flags[x.upper()] for x in requirements}
         except KeyError:
-            raise(ValueError("Incorrect flag \"{}\" in requirements".format(
+            raise ValueError("Incorrect flag \"{}\" in requirements".format(
                              (set(requirements) -
-                              set(possible_flags.keys())).pop())))
+                              set(possible_flags.keys())).pop()))
 
     order = 'A'
     if requirements >= {'C', 'F'}:
@@ -115,9 +114,9 @@ def require(a, dtype=None, requirements=None):
         order = 'C_CONTIGUOUS'
         requirements.remove('C')
 
-    copy = 'OWNDATA' in requirements
+    copy = True if 'OWNDATA' in requirements else None
     try:
         arr = cupy.array(a, dtype=dtype, order=order, copy=copy, subok=False)
     except TypeError:
-        raise(ValueError("Incorrect dtype \"{}\" provided".format(dtype)))
+        raise ValueError("Incorrect dtype \"{}\" provided".format(dtype))
     return arr

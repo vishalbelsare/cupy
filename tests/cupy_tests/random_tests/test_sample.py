@@ -13,7 +13,6 @@ from cupy.testing import _condition
 from cupy.testing import _hypothesis
 
 
-@testing.gpu
 class TestRandint(unittest.TestCase):
 
     def test_lo_hi_reversed(self):
@@ -44,7 +43,6 @@ class TestRandint(unittest.TestCase):
 
 
 @testing.fix_random()
-@testing.gpu
 class TestRandint2(unittest.TestCase):
 
     @_condition.repeat(3, 10)
@@ -109,9 +107,9 @@ class TestRandint2(unittest.TestCase):
         assert _hypothesis.chi_square_test(counts, expected)
 
 
-@testing.gpu
 class TestRandintDtype(unittest.TestCase):
 
+    @testing.with_requires("numpy>=2.0")
     @testing.for_dtypes([
         numpy.int8, numpy.uint8, numpy.int16, numpy.uint16, numpy.int32])
     def test_dtype(self, dtype):
@@ -147,7 +145,6 @@ class TestRandintDtype(unittest.TestCase):
             random.randint(iinfo.max - 10, iinfo.max + 2, size, dtype)
 
 
-@testing.gpu
 class TestRandomIntegers(unittest.TestCase):
 
     def test_normal(self):
@@ -167,7 +164,6 @@ class TestRandomIntegers(unittest.TestCase):
 
 
 @testing.fix_random()
-@testing.gpu
 class TestRandomIntegers2(unittest.TestCase):
 
     @_condition.repeat(3, 10)
@@ -205,7 +201,6 @@ class TestRandomIntegers2(unittest.TestCase):
         assert _hypothesis.chi_square_test(counts, expected)
 
 
-@testing.gpu
 class TestChoice(unittest.TestCase):
 
     def setUp(self):
@@ -251,7 +246,6 @@ class TestChoice(unittest.TestCase):
         self.m.choice.assert_called_with(3, 1, True, [0.1, 0.1, 0.8])
 
 
-@testing.gpu
 class TestRandomSample(unittest.TestCase):
 
     def test_rand(self):
@@ -295,7 +289,6 @@ class TestRandomSample(unittest.TestCase):
     {'size': (1, 0)},
 )
 @testing.fix_random()
-@testing.gpu
 class TestMultinomial(unittest.TestCase):
 
     @_condition.repeat(3, 10)

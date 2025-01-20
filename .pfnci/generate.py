@@ -57,7 +57,8 @@ class LinuxGenerator:
         os_name, os_version = matrix.os.split(':')
         if matrix.cuda is not None:
             full_ver = self.schema['cuda'][matrix.cuda]['full_version']
-            base_image = f'nvidia/cuda:{full_ver}-devel-{os_name}{os_version}'
+            repo = self.schema['cuda'][matrix.cuda]['repository']
+            base_image = f'{repo}:{full_ver}-devel-{os_name}{os_version}'
         elif matrix.rocm is not None:
             full_ver = self.schema['rocm'][matrix.rocm]['full_version']
             base_image = f'rocm/dev-{os_name}-{os_version}:{full_ver}'
@@ -118,7 +119,11 @@ class LinuxGenerator:
             assert os_version in ('7', '8')
             if os_version == '7':
                 lines += [
-                    'RUN yum -y install centos-release-scl && \\',
+                    'COPY setup/setup-yum-centos7-pre.sh setup/setup-yum-centos7-post.sh /',  # NOQA
+                    '',
+                    'RUN /setup-yum-centos7-pre.sh && \\',
+                    '    yum -y install centos-release-scl && \\',
+                    '    /setup-yum-centos7-post.sh && \\',
                     '    yum -y install devtoolset-7-gcc-c++',
                     'ENV PATH "/opt/rh/devtoolset-7/root/usr/bin:${PATH}"',
                     'ENV LD_LIBRARY_PATH "/opt/rh/devtoolset-7/root/usr/lib64:/opt/rh/devtoolset-7/root/usr/lib:${LD_LIBRARY_PATH}"',  # NOQA
@@ -140,6 +145,16 @@ class LinuxGenerator:
                 'ENV PATH "/usr/lib64/ccache:${PATH}"',
                 '',
             ]
+
+            if os_version == '7':
+                lines += [
+                    'RUN yum -y install openssl11-devel',
+                    'ENV CFLAGS "-I/usr/include/openssl11"',
+                    'ENV CPPFLAGS "-I/usr/include/openssl11"',
+                    'ENV LDFLAGS "-L/usr/lib64/openssl11"',
+                    '',
+                ]
+
             assert matrix.mpi4py is None, 'mpi4py test unsupported on CentOS'
         else:
             raise AssertionError
@@ -173,7 +188,7 @@ class LinuxGenerator:
             'ENV PATH "${PYENV_ROOT}/shims:${PYENV_ROOT}/bin:${PATH}"',
             f'RUN pyenv install {py_spec} && \\',
             f'    pyenv global {py_spec} && \\',
-            '    pip install -U setuptools pip',
+            '    pip install -U setuptools pip wheel',
             '',
         ]
 
@@ -213,13 +228,17 @@ class LinuxGenerator:
             cudnn = matrix.cudnn
             if nccl is not None:
                 spec = self.schema['nccl'][nccl]['spec']
+                nccl_cuda_schema = self.schema['nccl'][nccl]['cuda'][cuda]
+                alias = cuda
+                if nccl_cuda_schema is not None:
+                    alias = nccl_cuda_schema['alias']
                 major = nccl.split('.')[0]
                 if apt:
-                    packages.append(f'libnccl{major}={spec}+cuda{cuda}')
-                    packages.append(f'libnccl-dev={spec}+cuda{cuda}')
+                    packages.append(f'libnccl{major}={spec}+cuda{alias}')
+                    packages.append(f'libnccl-dev={spec}+cuda{alias}')
                 else:
-                    packages.append(f'libnccl-{spec}-*+cuda{cuda}')
-                    packages.append(f'libnccl-devel-{spec}-*+cuda{cuda}')
+                    packages.append(f'libnccl-{spec}-*+cuda{alias}')
+                    packages.append(f'libnccl-devel-{spec}-*+cuda{alias}')
             if cutensor is not None:
                 spec = self.schema['cutensor'][cutensor]['spec']
                 major = cutensor.split('.')[0]
@@ -350,7 +369,7 @@ class CoverageGenerator:
                 table += [
                     [
                         key_header,
-                        value if value else 'null',
+                        value if value is not None else 'null',
                         str(count) if count != 0 else '🚨',
                     ] + [
                         '✅' if mv == value else '' for mv in matrix_values

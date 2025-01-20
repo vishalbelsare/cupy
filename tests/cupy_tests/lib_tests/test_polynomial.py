@@ -7,12 +7,13 @@ from cupy.cuda import runtime
 import cupyx
 from cupy import testing
 
+from cupy.exceptions import RankWarning
+
 
 @testing.parameterize(
     {'variable': None},
     {'variable': 'y'},
 )
-@testing.gpu
 class TestPoly1dInit:
 
     @testing.for_all_dtypes(no_bool=True)
@@ -107,7 +108,6 @@ class TestPoly1dInit:
         return out.coeffs
 
 
-@testing.gpu
 class TestPoly1d:
 
     @testing.for_all_dtypes()
@@ -244,7 +244,6 @@ class TestPoly1d:
         return b(a)
 
 
-@testing.gpu
 class TestPoly:
 
     @testing.for_all_dtypes(no_bool=True)
@@ -301,7 +300,6 @@ class TestPoly:
         return xp.poly(a)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape': [(), (0,), (5,)],
     'exp': [0, 4, 5, numpy.int32(5), numpy.int64(5)],
@@ -316,7 +314,6 @@ class TestPoly1dPow:
         return xp.poly1d(a) ** self.exp
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape': [(5,), (5, 2)],
     'exp': [-10, 3.5, [1, 2, 3]],
@@ -331,7 +328,6 @@ class TestPoly1dPowInvalidValue:
                 xp.poly1d(a) ** self.exp
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'exp': [3.0, numpy.float64(5)],
 }))
@@ -363,7 +359,6 @@ class Poly1dTestBase:
         assert False
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'func': [
         lambda x, y: x + y,
@@ -386,7 +381,6 @@ class TestPoly1dPolynomialArithmetic(Poly1dTestBase):
         return self.func(a1, a2)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'fname': ['add', 'subtract', 'multiply', 'divide', 'power'],
     'type_l': ['poly1d', 'ndarray', 'python_scalar', 'numpy_scalar'],
@@ -403,7 +397,6 @@ class TestPoly1dMathArithmetic(Poly1dTestBase):
         return func(a1, a2)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'fname': ['polyadd', 'polysub', 'polymul'],
     'type_l': ['poly1d', 'ndarray', 'python_scalar', 'numpy_scalar'],
@@ -421,7 +414,6 @@ class TestPoly1dRoutines(Poly1dTestBase):
         return func(a1, a2)
 
 
-@testing.gpu
 class TestPoly1dEquality:
 
     def make_poly1d1(self, xp, dtype):
@@ -463,7 +455,6 @@ class TestPoly1dEquality:
         return a != b
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'fname': ['polyadd', 'polysub', 'polymul'],
     'shape1': [(), (0,), (3,), (5,)],
@@ -481,7 +472,6 @@ class TestPolyArithmeticShapeCombination:
         return func(a, b)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'fname': ['polyadd', 'polysub', 'polymul'],
 }))
@@ -522,7 +512,6 @@ class TestPolyArithmeticDiffTypes:
             pass
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape1': [(3,)],
     'shape2': [(3,), (3, 2)],
@@ -565,7 +554,6 @@ class TestPolyfitParametersCombinations:
             assert cp_rcond == np_rcond
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape': [(3,), (3, 2)],
     'deg': [0, 1],
@@ -591,7 +579,6 @@ class TestPolyfitCovMode:
         testing.assert_allclose(cp_cov, np_cov, rtol=1e-3)
 
 
-@testing.gpu
 class TestPolyfit:
 
     @testing.for_all_dtypes(no_float16=True)
@@ -599,11 +586,10 @@ class TestPolyfit:
         for xp in (numpy, cupy):
             x = testing.shaped_arange((5,), xp, dtype)
             y = testing.shaped_arange((5,), xp, dtype)
-            with pytest.warns(numpy.RankWarning):
+            with pytest.warns(RankWarning):
                 xp.polyfit(x, y, 6)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape': [(), (0,), (5, 3, 3)],
 }))
@@ -634,7 +620,6 @@ class TestPolyfitInvalidShapes:
                 xp.polyfit(x, x, 5, w=w)
 
 
-@testing.gpu
 class TestPolyfitInvalid:
 
     @testing.for_all_dtypes(no_float16=True)
@@ -684,7 +669,6 @@ class TestPolyfitInvalid:
                 xp.polyfit(x, x, 4)
 
 
-@testing.gpu
 class TestPolyfitDiffTypes:
 
     @testing.for_all_dtypes_combination(
@@ -705,7 +689,6 @@ class TestPolyfitDiffTypes:
         return xp.polyfit(x, y, 5, w=w)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'type_l': ['poly1d', 'ndarray'],
     'type_r': ['poly1d', 'ndarray', 'numpy_scalar', 'python_scalar'],
@@ -720,7 +703,6 @@ class TestPolyval(Poly1dTestBase):
         return xp.polyval(a1, a2)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'type_l': ['numpy_scalar', 'python_scalar'],
     'type_r': ['poly1d', 'ndarray', 'python_scalar', 'numpy_scalar'],
@@ -736,7 +718,6 @@ class TestPolyvalInvalidTypes(Poly1dTestBase):
                 xp.polyval(a1, a2)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape1': [(0,), (3,), (5,)],
     'shape2': [(), (0,), (3,), (5,)]
@@ -751,7 +732,6 @@ class TestPolyvalShapeCombination:
         return xp.polyval(a, b)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'shape': [(), (0,), (3,), (5,)]
 }))
@@ -766,7 +746,6 @@ class TestPolyvalInvalidShapeCombination:
                 xp.polyval(a, b)
 
 
-@testing.gpu
 class TestPolyvalDtypesCombination:
 
     @testing.for_all_dtypes_combination(names=['dtype1', 'dtype2'], full=True)
@@ -776,6 +755,7 @@ class TestPolyvalDtypesCombination:
         b = testing.shaped_arange((3,), xp, dtype2)
         return xp.polyval(a, b)
 
+    @testing.with_requires('numpy>=1.25')
     @testing.for_all_dtypes_combination(names=['dtype1', 'dtype2'], full=True)
     @testing.numpy_cupy_allclose(rtol=1e-6)
     def test_polyval_diff_types_array_scalar(self, xp, dtype1, dtype2):
@@ -784,7 +764,6 @@ class TestPolyvalDtypesCombination:
         return xp.polyval(a, b)
 
 
-@testing.gpu
 class TestPolyvalMultiDimensional:
 
     @testing.for_all_dtypes()
@@ -801,7 +780,6 @@ class TestPolyvalMultiDimensional:
         return cupy.polyval(a, b)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'fname': ['polyadd', 'polysub', 'polymul', 'polyval'],
 }))
@@ -817,7 +795,6 @@ class TestPolyRoutinesNdim:
                 func(a, b)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'input': [[2, -1, -2], [-4, 10, 4]],
 }))
@@ -840,7 +817,6 @@ class TestRootsReal:
         return xp.sort(out)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'input': [[3j, 1.5j, -3j], [3 + 2j, 5], [3j, 0], [0, 3j]],
 }))
@@ -865,7 +841,6 @@ class TestRootsComplex:
         return xp.sort(out)
 
 
-@testing.gpu
 @testing.parameterize(*testing.product({
     'input': [[5, 10], [5, 0], [0, 5], [0, 0], [5]],
 }))
@@ -884,7 +859,6 @@ class TestRootsSpecialCases:
         return xp.roots(xp.poly1d(a))
 
 
-@testing.gpu
 class TestRoots:
 
     @testing.for_all_dtypes(no_bool=True)

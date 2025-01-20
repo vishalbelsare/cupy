@@ -5,7 +5,6 @@ import numpy
 from cupy import testing
 
 
-@testing.gpu
 class TestContent(unittest.TestCase):
 
     @testing.for_dtypes('efFdD')
@@ -19,7 +18,7 @@ class TestContent(unittest.TestCase):
     @testing.numpy_cupy_array_equal()
     def check_unary_nan(self, name, xp, dtype):
         a = xp.array(
-            [-3, numpy.NAN, -1, numpy.NAN, 0, numpy.NAN, numpy.inf],
+            [-3, numpy.nan, -1, numpy.nan, 0, numpy.nan, numpy.inf],
             dtype=dtype)
         return getattr(xp, name)(a)
 
@@ -33,7 +32,6 @@ class TestContent(unittest.TestCase):
         self.check_unary_nan('isnan')
 
 
-@testing.gpu
 class TestUfuncLike(unittest.TestCase):
 
     @testing.numpy_cupy_array_equal()

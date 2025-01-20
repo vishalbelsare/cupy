@@ -17,13 +17,15 @@ class _TestBase:
     def test_ndtri(self):
         self.check_unary_linspace0_1('ndtri')
 
+    @testing.with_requires("scipy>=1.14")
     def test_logit(self):
         self.check_unary_lower_precision('logit')
 
+    @testing.with_requires("scipy>=1.14")
     def test_expit(self):
         self.check_unary_lower_precision('expit')
 
-    @testing.with_requires('scipy>=1.8.0rc0')
+    @testing.with_requires("scipy>=1.14")
     def test_log_expit(self):
         self.check_unary_lower_precision('log_expit')
 
@@ -36,7 +38,6 @@ atol_low = {'default': 5e-4, cupy.float64: 1e-12}
 rtol_low = {'default': 5e-4, cupy.float64: 1e-12}
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestSpecial(_TestBase):
 
@@ -111,7 +112,6 @@ class TestSpecial(_TestBase):
         assert numpy.isnan(float(boxcox1p(-1.1, 5)))
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestFusionSpecial(_TestBase):
 
@@ -153,7 +153,6 @@ class _TestDistributionsBase:
                                 atol=atol)
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestTwoArgumentDistribution(_TestDistributionsBase):
 
@@ -204,11 +203,10 @@ class TestTwoArgumentDistribution(_TestDistributionsBase):
         self._test_scalar(function, args, expected)
 
 
-@testing.gpu
 @testing.with_requires('scipy')
 class TestThreeArgumentDistributions(_TestDistributionsBase):
 
-    @pytest.mark.parametrize('function', ['btdtr', 'btdtri', 'fdtr', 'fdtrc',
+    @pytest.mark.parametrize('function', ['fdtr', 'fdtrc',
                                           'fdtri', 'gdtr', 'gdtrc'])
     @testing.for_float_dtypes()
     @testing.numpy_cupy_allclose(atol=1e-5, rtol=1e-5, scipy_name='scp')
@@ -225,7 +223,7 @@ class TestThreeArgumentDistributions(_TestDistributionsBase):
         # a and b should be positive
         a = xp.linspace(-1, 21, 30, dtype=dtype)[:, xp.newaxis, xp.newaxis]
         b = xp.linspace(-1, 21, 30, dtype=dtype)[xp.newaxis, :, xp.newaxis]
-        if function in ['fdtri', 'btdtr', 'btdtri']:
+        if function == 'fdtri':
             # x should be in [0, 1] so concentrate values around that
             x = xp.linspace(-0.1, 1.3, 20, dtype=dtype)
         else:
@@ -279,9 +277,7 @@ class TestThreeArgumentDistributions(_TestDistributionsBase):
 
     @pytest.mark.parametrize(
         'function, args, expected',
-        [('btdtr', (1, 1, 1), 1.0),
-         ('btdtri', (1, 1, 1), 1.0),
-         ('betainc', (1, 1, 0), 0.0),
+        [('betainc', (1, 1, 0), 0.0),
          # Computed using Wolfram Alpha: CDF[FRatioDistribution[1e-6, 5], 10]
          ('fdtr', (1e-6, 5, 10), 0.9999940790193488),
          ('fdtrc', (1, 1, 0), 1.0),

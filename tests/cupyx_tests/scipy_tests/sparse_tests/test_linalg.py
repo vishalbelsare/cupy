@@ -61,14 +61,14 @@ class TestLsqr(unittest.TestCase):
     @_condition.retry(10)
     @testing.numpy_cupy_allclose(atol=1e-1, sp_name='sp')
     def test_ndarray(self, xp, sp):
-        A = xp.array(self.A.A, dtype=self.dtype)
+        A = xp.array(self.A.toarray(), dtype=self.dtype)
         b = xp.array(self.b, dtype=self.dtype)
         x = sp.linalg.lsqr(A, b)
         return x[0]
 
 
 @testing.parameterize(*testing.product({
-    'ord': [None, -numpy.Inf, -2, -1, 0, 1, 2, 3, numpy.Inf, 'fro'],
+    'ord': [None, -numpy.inf, -2, -1, 0, 1, 2, 3, numpy.inf, 'fro'],
     'dtype': [
         numpy.float32,
         numpy.float64,
@@ -78,15 +78,16 @@ class TestLsqr(unittest.TestCase):
     'axis': [None, (0, 1), (1, -2)],
 }))
 @testing.with_requires('scipy')
-@testing.gpu
 class TestMatrixNorm:
 
     @testing.numpy_cupy_allclose(rtol=1e-3, atol=1e-4, sp_name='sp',
                                  accept_error=(ValueError,
                                                NotImplementedError))
     def test_matrix_norm(self, xp, sp):
-        if runtime.is_hip and self.ord in (1, -1, numpy.Inf, -numpy.Inf):
+        if runtime.is_hip and self.ord in (1, -1, numpy.inf, -numpy.inf):
             pytest.xfail('csc spmv is buggy')
+        if self.ord == 2:
+            pytest.xfail('ord=2 is not implemented in cupy')
         a = xp.arange(9, dtype=self.dtype) - 4
         b = a.reshape((3, 3))
         b = sp.csr_matrix(b, dtype=self.dtype)
@@ -94,7 +95,7 @@ class TestMatrixNorm:
 
 
 @testing.parameterize(*testing.product({
-    'ord': [None, -numpy.Inf, -2, -1, 0, 1, 2, numpy.Inf, 'fro'],
+    'ord': [None, -numpy.inf, -2, -1, 0, 1, 2, numpy.inf, 'fro'],
     'dtype': [
         numpy.float32,
         numpy.float64,
@@ -106,7 +107,6 @@ class TestMatrixNorm:
 })
 )
 @testing.with_requires('scipy')
-@testing.gpu
 class TestVectorNorm:
 
     @testing.numpy_cupy_allclose(rtol=1e-3, atol=1e-4, sp_name='sp',
@@ -157,7 +157,7 @@ class TestEigsh:
             ax_xw = a @ x - xp.multiply(x, w.reshape(1, self.k))
             res = xp.linalg.norm(ax_xw) / xp.linalg.norm(w)
             tol = self.res_tol[numpy.dtype(a.dtype).char.lower()]
-            assert(res < tol)
+            assert (res < tol)
         else:
             w = ret
         return xp.sort(w)
@@ -218,6 +218,28 @@ class TestEigsh:
             sp.linalg.eigsh(a, k=self.n)
         with pytest.raises(ValueError):
             sp.linalg.eigsh(a, k=self.k, which='SM')
+
+    def test_starting_vector(self):
+        eigsh = cupyx.scipy.sparse.linalg.eigsh
+        n = 100
+
+        # Make symmetric matrix
+        aux = cupy.random.randn(n, n)
+        matrix = (aux + aux.T) / 2.0
+
+        # Find reference eigenvector
+        ew, ev = eigsh(matrix, k=1)
+        v = ev[:, 0]
+
+        # Obtain non-converged eigenvector from random initial guess.
+        ew_aux, ev_aux = eigsh(matrix, k=1, ncv=1, maxiter=0)
+        v_aux = cupy.copysign(ev_aux[:, 0], v)
+
+        # Obtain eigenvector using known eigenvector as initial guess.
+        ew_v0, ev_v0 = eigsh(matrix, k=1, v0=v.copy(), ncv=1, maxiter=0)
+        v_v0 = cupy.copysign(ev_v0[:, 0], v)
+
+        assert cupy.linalg.norm(v - v_v0) < cupy.linalg.norm(v - v_aux)
 
 
 @testing.parameterize(*testing.product({
@@ -312,7 +334,6 @@ class TestSvds:
     'use_linear_operator': [False, True],
 }))
 @testing.with_requires('scipy')
-@testing.gpu
 class TestCg:
     n = 30
     density = 0.33
@@ -346,16 +367,10 @@ class TestCg:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
-        else:
-            return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
+        return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
@@ -384,6 +399,7 @@ class TestCg:
                 M = sp.linalg.aslinearoperator(M)
         return self._test_cg(dtype, xp, sp, a, M)
 
+    @testing.with_requires('scipy>=1.12.0rc1')
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
     def test_empty(self, dtype, xp, sp):
@@ -393,10 +409,7 @@ class TestCg:
         a = xp.empty((0, 0), dtype=dtype)
         b = xp.empty((0,), dtype=dtype)
         if self.atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cg(a, b)
+            return sp.linalg.cg(a, b)
         else:
             return sp.linalg.cg(a, b)
 
@@ -461,7 +474,6 @@ class TestCg:
     'use_linear_operator': [False, True],
 }))
 @testing.with_requires('scipy>=1.4')
-@testing.gpu
 class TestGmres:
     n = 30
     density = 0.2
@@ -503,18 +515,11 @@ class TestGmres:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.gmres(
-                    a, b, x0=x0, restart=self.restart, M=M, atol=atol)
-        else:
-            return sp.linalg.gmres(
-                a, b, x0=x0, restart=self.restart, M=M, atol=atol)
+        return sp.linalg.gmres(
+            a, b, x0=x0, restart=self.restart, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
@@ -543,6 +548,7 @@ class TestGmres:
                 M = sp.linalg.aslinearoperator(M)
         return self._test_gmres(dtype, xp, sp, a, M)
 
+    @testing.with_requires('scipy>=1.12.0rc1')
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
     def test_empty(self, dtype, xp, sp):
@@ -552,10 +558,7 @@ class TestGmres:
         a = xp.empty((0, 0), dtype=dtype)
         b = xp.empty((0,), dtype=dtype)
         if self.atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.gmres(a, b)
+            return sp.linalg.gmres(a, b)
         else:
             return sp.linalg.gmres(a, b)
 
@@ -643,7 +646,6 @@ def skip_HIP_spMM_error(outer=()):
     'M': [1, 6],
     'N': [1, 7],
 }))
-@testing.gpu
 @testing.with_requires('scipy>=1.4')
 class TestLinearOperator:
 
@@ -768,7 +770,6 @@ class TestLinearOperator:
     'order': ['C', 'F']
 }))
 @testing.with_requires('scipy>=1.4.0')
-@testing.gpu
 @pytest.mark.skipif(not cusparse.check_availability('csrsm2'),
                     reason='no working implementation')
 class TestSpsolveTriangular:
@@ -798,7 +799,9 @@ class TestSpsolveTriangular:
     @pytest.mark.parametrize('format', ['csr', 'csc', 'coo'])
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(
-        rtol=1e-5, atol=1e-5, sp_name='sp', contiguous_check=False)
+        rtol=1e-5, atol=1e-5, sp_name='sp', contiguous_check=False,
+        type_check=False,  # "XXX: Dtypes differ on np2.0 / win scipy1.14
+    )
     def test_sparse(self, format, dtype, xp, sp):
         a, b = self._make_matrix(dtype, xp)
         a = sp.coo_matrix(a).asformat(format)
@@ -924,7 +927,6 @@ def _eigen_vec_transform(block_vec, xp):
 
 
 @testing.with_requires('scipy>=1.4')
-@testing.gpu
 @pytest.mark.skipif(runtime.is_hip and driver.get_build_version() < 402,
                     reason='syevj not available')
 # tests adapted from scipy's tests of lobpcg
@@ -951,7 +953,7 @@ class TestLOBPCG:
         """Build a pair of full diagonal matrices for the generalized eigenvalue
         problem. The Mikota pair acts as a nice test since the eigenvalues are
         the squares of the integers n, n=1,2,...
-        """
+        """  # NOQA
         x = xp.arange(1, n + 1)
         B = xp.diag(1. / x)
         y = xp.arange(n - 1, 0, -1)
@@ -992,6 +994,7 @@ class TestLOBPCG:
                                             largest=False)
         return eigvals, _eigen_vec_transform(eigvecs, xp)
 
+    @testing.with_requires('scipy<1.11')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp',
                                  contiguous_check=False)
     def test_generate_input_for_elastic_rod(self, xp, sp):
@@ -1004,6 +1007,7 @@ class TestLOBPCG:
                                             largest=False)
         return eigvals, _eigen_vec_transform(eigvecs, xp)
 
+    @testing.with_requires('scipy<1.11')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp',
                                  contiguous_check=False)
     def test_generate_input_for_mikota_pair(self, xp, sp):
@@ -1164,7 +1168,7 @@ class TestLOBPCG:
         output = saved_stdout.getvalue().strip()
         return output
 
-    @testing.with_requires('scipy>=1.8.0rc1')
+    @testing.with_requires('scipy>=1.10', 'scipy<1.11')
     def test_verbosity(self):
         """Check that nonzero verbosity level code runs
            and is identical to scipy's output format.
@@ -1200,6 +1204,11 @@ class TestLOBPCG:
     @pytest.mark.xfail(
         runtime.is_hip and driver.get_build_version() >= 5_00_00000,
         reason='ROCm 5.0+ may have a bug')
+    @pytest.mark.xfail(
+        cupy.cuda.cusolver._getVersion() >= (11, 4, 5),  # CUDA 12.1.1+
+        reason='cuSOLVER in CUDA 12.1+ may have a bug',
+        strict=False,  # Seems only failing with Volta (V100 / T4)
+    )
     def test_maxit_None(self):
         """Check lobpcg if maxit=None runs 20 iterations (the default)
         by checking the size of the iteration history output, which should
@@ -1228,7 +1237,6 @@ class TestLOBPCG:
 
 
 @testing.with_requires('scipy>=1.4')
-@testing.gpu
 @testing.parameterize(*testing.product({
     'A_sparsity': [True, False],
     'B_sparsity': [True, False],
@@ -1289,7 +1297,7 @@ class TestLOBPCGForDiagInput:
         X = testing.shaped_random((n, m), xp=xp, dtype=xp.dtype(self.X_dtype),
                                   seed=1234)
 
-        # Require tht returned eigenvectors be in the orthogonal
+        # Require that returned eigenvectors be in the orthogonal
         # complement of the first few standard basis vectors
         # (Cannot be sparse array)
         m_excluded = 3
@@ -1309,7 +1317,6 @@ class TestLOBPCGForDiagInput:
 @testing.with_requires('scipy')
 @pytest.mark.skipif(not cusparse.check_availability('csrsm2'),
                     reason='no working implementation')
-@testing.gpu
 class TestSplu:
 
     n = 10
@@ -1484,16 +1491,10 @@ class TestCgs:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
-        else:
-            return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
+        return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
@@ -1522,6 +1523,7 @@ class TestCgs:
                 M = sp.linalg.aslinearoperator(M)
         return self._test_cgs(dtype, xp, sp, a, M)
 
+    @testing.with_requires('scipy>=1.12.0rc1')
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
     def test_empty(self, dtype, xp, sp):
@@ -1531,10 +1533,7 @@ class TestCgs:
         a = xp.empty((0, 0), dtype=dtype)
         b = xp.empty((0,), dtype=dtype)
         if self.atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cgs(a, b)
+            return sp.linalg.cgs(a, b)
         else:
             return sp.linalg.cgs(a, b)
 

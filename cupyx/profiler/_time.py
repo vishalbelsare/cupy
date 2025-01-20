@@ -41,7 +41,7 @@ class _PerfCaseResult:
 
         These values are delta of the host-side performance counter
         (:func:`time.perf_counter`) between each repeat step.
-        """
+        """  # NOQA
         return self._ts[0]
 
     @property
@@ -105,7 +105,7 @@ def benchmark(
 
     Args:
         func (callable): a callable object to be timed.
-        args (tuple): positional argumens to be passed to the callable.
+        args (tuple): positional arguments to be passed to the callable.
         kwargs (dict): keyword arguments to be passed to the callable.
         n_repeat (int): number of times the callable is called. Increasing
             this value would improve the collected statistics at the cost
